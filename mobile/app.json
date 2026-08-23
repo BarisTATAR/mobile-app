@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "48 App",
+    "slug": "48app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.app48.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Haritada konumunuzu ve yakındaki işletmeleri göstermek için konum izni kullanılır.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true,
+          "NSAllowsArbitraryLoadsInWebContent": true,
+          "NSExceptionDomains": {
+            "localhost": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        }
+      }
+    },
+    "android": {
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.app48.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
+
+
