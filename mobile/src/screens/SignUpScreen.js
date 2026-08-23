@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
   ActivityIndicator,
   Modal,
@@ -45,6 +43,20 @@ export default function SignUpScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
   const [loading, setLoading] = useState(false);
+  const scrollRef = useRef(null);
+  const passwordContainerRef = useRef(null);
+  const passwordRepeatContainerRef = useRef(null);
+
+  const scrollFieldIntoView = (containerRef) => {
+    if (!containerRef?.current || !scrollRef.current) return;
+    containerRef.current.measureLayout(
+      scrollRef.current,
+      (_x, y) => {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 24), animated: true });
+      },
+      () => {}
+    );
+  };
 
   // İlleri yükle, varsayılan Muğla için ilçeleri doldur
   useEffect(() => {
@@ -152,11 +164,8 @@ export default function SignUpScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
         <ScrollView
+          ref={scrollRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -183,7 +192,7 @@ export default function SignUpScreen({ navigation }) {
                 />
               </View>
 
-              <View style={styles.inputContainer}>
+              <View ref={passwordContainerRef} style={styles.inputContainer}>
                 <Text style={styles.label}>Şifre</Text>
                 <TextInput
                   style={styles.input}
@@ -194,7 +203,7 @@ export default function SignUpScreen({ navigation }) {
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={true}
+                  onFocus={() => scrollFieldIntoView(passwordContainerRef)}
                 />
                 <TouchableOpacity
                   style={styles.passwordToggle}
@@ -207,7 +216,7 @@ export default function SignUpScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.inputContainer}>
+              <View ref={passwordRepeatContainerRef} style={styles.inputContainer}>
                 <Text style={styles.label}>Şifre (Tekrar)</Text>
                 <TextInput
                   style={[
@@ -221,7 +230,7 @@ export default function SignUpScreen({ navigation }) {
                   secureTextEntry={!showPasswordRepeat}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={true}
+                  onFocus={() => scrollFieldIntoView(passwordRepeatContainerRef)}
                 />
                 {passwordRepeatTouched && !passwordsMatch && (
                   <Text style={styles.errorText}>Şifreler eşleşmiyor</Text>
@@ -343,108 +352,6 @@ export default function SignUpScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
 
-              {/* İl seçim modal */}
-              <Modal visible={showCityModal} transparent animationType="slide">
-                <TouchableOpacity
-                  style={styles.modalOverlay}
-                  activeOpacity={1}
-                  onPress={() => setShowCityModal(false)}
-                >
-                  <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>İl Seçin</Text>
-                    <FlatList
-                      data={provinces}
-                      keyExtractor={(item) => String(item.id)}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={styles.modalItem}
-                          onPress={() => {
-                            setCity(item.name);
-                            setShowCityModal(false);
-                          }}
-                        >
-                          <Text style={styles.modalItemText}>{item.name}</Text>
-                        </TouchableOpacity>
-                      )}
-                    />
-                    <TouchableOpacity
-                      style={styles.modalClose}
-                      onPress={() => setShowCityModal(false)}
-                    >
-                      <Text style={styles.modalCloseText}>Kapat</Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              </Modal>
-
-              {/* İlçe seçim modal */}
-              <Modal visible={showDistrictModal} transparent animationType="slide">
-                <TouchableOpacity
-                  style={styles.modalOverlay}
-                  activeOpacity={1}
-                  onPress={() => setShowDistrictModal(false)}
-                >
-                  <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>İlçe Seçin</Text>
-                    <FlatList
-                      data={districtsList}
-                      keyExtractor={(item) => String(item.id)}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={styles.modalItem}
-                          onPress={() => {
-                            setDistrict(item.name);
-                            setShowDistrictModal(false);
-                          }}
-                        >
-                          <Text style={styles.modalItemText}>{item.name}</Text>
-                        </TouchableOpacity>
-                      )}
-                    />
-                    <TouchableOpacity
-                      style={styles.modalClose}
-                      onPress={() => setShowDistrictModal(false)}
-                    >
-                      <Text style={styles.modalCloseText}>Kapat</Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              </Modal>
-
-              {/* Mahalle seçim modal */}
-              <Modal visible={showNeighborhoodModal} transparent animationType="slide">
-                <TouchableOpacity
-                  style={styles.modalOverlay}
-                  activeOpacity={1}
-                  onPress={() => setShowNeighborhoodModal(false)}
-                >
-                  <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Mahalle Seçin</Text>
-                    <FlatList
-                      data={neighborhoodsList}
-                      keyExtractor={(item) => String(item.id)}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={styles.modalItem}
-                          onPress={() => {
-                            setNeighborhood(item.name);
-                            setShowNeighborhoodModal(false);
-                          }}
-                        >
-                          <Text style={styles.modalItemText}>{item.name}</Text>
-                        </TouchableOpacity>
-                      )}
-                    />
-                    <TouchableOpacity
-                      style={styles.modalClose}
-                      onPress={() => setShowNeighborhoodModal(false)}
-                    >
-                      <Text style={styles.modalCloseText}>Kapat</Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              </Modal>
-
               <View style={styles.buttonRow}>
                 <TouchableOpacity
                   style={[styles.backButton, styles.backButtonBox]}
@@ -473,7 +380,99 @@ export default function SignUpScreen({ navigation }) {
             </View>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+
+      <Modal visible={showCityModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowCityModal(false)}
+          />
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>İl Seçin</Text>
+            <FlatList
+              data={provinces}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setCity(item.name);
+                    setShowCityModal(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowCityModal(false)}>
+              <Text style={styles.modalCloseText}>Kapat</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showDistrictModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowDistrictModal(false)}
+          />
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>İlçe Seçin</Text>
+            <FlatList
+              data={districtsList}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setDistrict(item.name);
+                    setShowDistrictModal(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowDistrictModal(false)}>
+              <Text style={styles.modalCloseText}>Kapat</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showNeighborhoodModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowNeighborhoodModal(false)}
+          />
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Mahalle Seçin</Text>
+            <FlatList
+              data={neighborhoodsList}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setNeighborhood(item.name);
+                    setShowNeighborhoodModal(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowNeighborhoodModal(false)}>
+              <Text style={styles.modalCloseText}>Kapat</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -483,17 +482,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  keyboardView: {
-    flex: 1,
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 120,
   },
   content: {
-    flex: 1,
     padding: 20,
     paddingTop: 40,
   },
@@ -588,8 +584,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
     backgroundColor: '#fff',

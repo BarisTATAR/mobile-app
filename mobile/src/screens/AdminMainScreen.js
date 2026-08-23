@@ -1975,7 +1975,15 @@ export default function AdminMainScreen({ route, navigation }) {
                           <View key={f.name} style={styles.field}>
                             <ListingMediaFormField
                               value={Array.isArray(formData.mediaFiles) ? formData.mediaFiles : []}
-                              onChange={(next) => setFormData((prev) => ({ ...prev, mediaFiles: next }))}
+                              onChange={(next) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  mediaFiles:
+                                    typeof next === 'function'
+                                      ? next(Array.isArray(prev.mediaFiles) ? prev.mediaFiles : [])
+                                      : next,
+                                }))
+                              }
                               label={f.label}
                             />
                           </View>

@@ -54,11 +54,13 @@ const yoreselEtkinlikTalepSchema = new mongoose.Schema(
       {
         isletme: { type: mongoose.Schema.Types.ObjectId, ref: 'YoreselEtkinlikIsletme', required: true },
         status: { type: String, enum: ISLETME_TALEP_STATUS, default: 'pending' },
+        autoRejected: { type: Boolean, default: false },
       },
     ],
     note: { type: String, trim: true, default: '' },
     status: { type: String, enum: TALEP_STATUS, default: 'pending' },
     manualEntry: { type: Boolean, default: false },
+    autoRejectedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

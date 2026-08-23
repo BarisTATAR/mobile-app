@@ -273,10 +273,21 @@ export default function EtkinliklerScreen() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        Alert.alert('Hata', data.error || 'Talep gönderilemedi.');
+        const errMsg = data.error || 'Talep gönderilemedi.';
+        if (res.status === 429 || data.code === 'DAILY_LIMIT') {
+          Alert.alert('Uyarı', 'Günlük Yöresel Etkinlik rezervasyon limitine ulaştınız.');
+        } else {
+          Alert.alert('Hata', errMsg);
+        }
         return;
       }
-      Alert.alert('Başarılı', data.message || 'Talebiniz iletildi.');
+      const contactNote = 'Rezervasyonlarınızın onaylanması için işletmeler ile iletişime geçmelisiniz.';
+      let successMsg = data.message || 'Talebiniz iletildi.';
+      successMsg += `\n\n${contactNote}`;
+      if (data.dailyLimitReached) {
+        successMsg += '\n\nGünlük Yöresel Etkinlik rezervasyon limitine ulaştınız.';
+      }
+      Alert.alert('Başarılı', successMsg);
       setNote('');
     } catch {
       Alert.alert('Hata', 'Bağlantı hatası.');

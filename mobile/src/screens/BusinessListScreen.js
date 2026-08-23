@@ -359,6 +359,14 @@ export default function BusinessListScreen({ navigation }) {
         <Text style={styles.subtitle}>
           İlçe ve mahalleyle süzün; kartlara dokunarak tarih/saat seçip talep gönderin. Listeyi kaydırarak filtre alanını yukarı alabilirsiniz.
         </Text>
+        {appUser?.specialDayDiscountToday ? (
+          <View style={styles.specialDayBanner}>
+            <Text style={styles.specialDayBannerText}>
+              🎉 Bugün özel gününüz — tüm işletmelerde %{appUser.specialDayDiscountPercent || 10} indirim.
+              Rezervasyon sırasında üye numaranızı gösterin.
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.filterSection}>
@@ -700,6 +708,19 @@ const styles = StyleSheet.create({
   backText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   title: { fontSize: 20, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
   subtitle: { fontSize: 12, color: 'rgba(255,255,255,0.88)', marginTop: 6, lineHeight: 17, textAlign: 'center' },
+  specialDayBanner: {
+    marginTop: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  specialDayBannerText: {
+    color: '#fff',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
   filterSection: {
     backgroundColor: '#fff',
     paddingHorizontal: 14,

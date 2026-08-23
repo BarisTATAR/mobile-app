@@ -31,6 +31,11 @@ const {
   formatUserForClient,
 } = require('./utils/memberId');
 const {
+  isTodayUsersSpecialDay,
+  getSpecialDayDiscountMeta,
+  resolveMemberDiscountForBusiness,
+} = require('./utils/specialDayDiscount');
+const {
   resolveLocationFieldsFromBody,
   enrichListForMap,
 } = require('./utils/mapLocation');
@@ -58,6 +63,11 @@ const {
 } = require('./utils/premiumOwner');
 const { openingHoursFromBody, applyOpeningHoursAndMenuToSet } = require('./utils/openingHours');
 const { applyMediaFilesToSet, enrichListingMedia, enrichListingMediaList } = require('./utils/listingMedia');
+const {
+  YORESEL_AUTO_REJECT_LABEL,
+  yoreselStatusLabelForIsletme,
+  expireStaleYoreselTalepler,
+} = require('./utils/yoreselTalepExpiry');
 const registerPremiumRoutes = require('./routes/premiumRoutes');
 
 const YORESEL_SERVICE_LABELS = {
@@ -139,6 +149,29 @@ function yoreselSlotsForIsletmeOnTalep(talep, isletmeId) {
   return [...slots];
 }
 
+/** İşletmeyi hedefleyen talepleri bulmak için geniş sorgu (allTargetIsletmeler + legacy alanlar). */
+function yoreselIsletmeTalepMatchFilter(isletmeId) {
+  const oid = new mongoose.Types.ObjectId(String(isletmeId));
+  const sid = String(isletmeId);
+  const serviceTargetClauses = YORESEL_SERVICE_KEYS.flatMap((key) => [
+    { [`serviceTargets.${key}`]: oid },
+    { [`serviceTargets.${key}`]: sid },
+  ]);
+  return {
+    $or: [
+      { allTargetIsletmeler: oid },
+      { targetIsletme: oid },
+      { targetIsletme: sid },
+      ...serviceTargetClauses,
+    ],
+  };
+}
+
+function yoreselIsletmeTalepActiveForCalendar(talep, isletmeId) {
+  const eff = yoreselEffectiveStatusForIsletme(talep, isletmeId);
+  return eff === 'pending' || eff === 'approved';
+}
+
 function yoreselServiceSlotLinesForIsletme(talep, isletmeId) {
   const sid = String(isletmeId);
   const lines = [];
@@ -171,7 +204,7 @@ function yoreselEnrichTalepForIsletme(talep, isletmeId) {
 
 async function yoreselIsletmeSlotConflict(isletmeId, date, timeSlot, excludeTalepId = null) {
   const query = {
-    allTargetIsletmeler: new mongoose.Types.ObjectId(isletmeId),
+    ...yoreselIsletmeTalepMatchFilter(isletmeId),
     date,
     status: { $ne: 'cancelled' },
   };
@@ -181,8 +214,7 @@ async function yoreselIsletmeSlotConflict(isletmeId, date, timeSlot, excludeTale
   const taleps = await YoreselEtkinlikTalep.find(query).lean();
   const slot = normalizeYoreselTimeSlot(timeSlot);
   for (const t of taleps) {
-    const eff = yoreselEffectiveStatusForIsletme(t, isletmeId);
-    if (!['pending', 'approved'].includes(eff)) continue;
+    if (!yoreselIsletmeTalepActiveForCalendar(t, isletmeId)) continue;
     const existingSlots = yoreselSlotsForIsletmeOnTalep(t, isletmeId);
     for (const existing of existingSlots) {
       if (yoreselTimeSlotsConflict(existing, slot)) {
@@ -191,6 +223,19 @@ async function yoreselIsletmeSlotConflict(isletmeId, date, timeSlot, excludeTale
     }
   }
   return { conflict: false };
+}
+
+function yoreselApplyTalepToCalendarByDate(byDate, talep, isletmeId) {
+  if (!yoreselIsletmeTalepActiveForCalendar(talep, isletmeId)) return;
+  const eff = yoreselEffectiveStatusForIsletme(talep, isletmeId);
+  const d = talep.date;
+  if (!byDate[d]) byDate[d] = emptyYoreselSlotDay();
+  const slotsOnDay = yoreselSlotsForIsletmeOnTalep(talep, isletmeId);
+  slotsOnDay.forEach((slot) => {
+    if (!byDate[d][slot]) byDate[d][slot] = { pending: 0, approved: 0 };
+    if (eff === 'pending') byDate[d][slot].pending += 1;
+    else if (eff === 'approved') byDate[d][slot].approved += 1;
+  });
 }
 
 function yoreselIsletmeStatusesInitial(allTargetIds, perStatus = 'pending') {
@@ -239,6 +284,18 @@ function yoreselRecomputeAggregateStatusFromIsletmeRows(talepDoc) {
     talepDoc.status = 'rejected';
   } else {
     talepDoc.status = 'partial';
+  }
+}
+
+async function runYoreselTalepExpiry() {
+  try {
+    if (mongoose.connection.readyState !== 1) return;
+    await expireStaleYoreselTalepler(YoreselEtkinlikTalep, {
+      yoreselEnsureIsletmeStatuses,
+      yoreselRecomputeAggregateStatusFromIsletmeRows,
+    });
+  } catch (e) {
+    console.error('Yoresel talep expiry error:', e);
   }
 }
 
@@ -324,6 +381,27 @@ function getTodayLocalStr() {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+const YORESEL_DAILY_RESERVATION_LIMIT = 2;
+const YORESEL_DAILY_LIMIT_MESSAGE = 'Günlük Yöresel Etkinlik rezervasyon limitine ulaştınız.';
+
+function getLocalDayRange() {
+  const d = new Date();
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
+  return { start, end };
+}
+
+async function countYoreselUserReservationsToday(userId) {
+  if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return 0;
+  const { start, end } = getLocalDayRange();
+  return YoreselEtkinlikTalep.countDocuments({
+    user: userId,
+    manualEntry: { $ne: true },
+    status: { $ne: 'cancelled' },
+    createdAt: { $gte: start, $lt: end },
+  });
 }
 
 /** Cep / iletişim: yalnızca rakamlar */
@@ -1174,8 +1252,15 @@ app.get('/api/user/member-discounts', async (req, res) => {
     }
     await ensureUserMemberId(user);
     const memberId = normalizeMemberId(user.memberId);
+    const todayStr = getTodayLocalStr();
+    const specialDayActive = isTodayUsersSpecialDay(user.specialDay);
     if (!memberId) {
-      return res.json({ discounts: [] });
+      return res.json({
+        discounts: [],
+        specialDayDiscount: specialDayActive
+          ? { active: true, ...getSpecialDayDiscountMeta(todayStr), appliesTo: 'all_reservation_businesses' }
+          : { active: false },
+      });
     }
     const raw = await MemberDiscount.find({ memberId, active: true })
       .populate('business', 'businessName')
@@ -1192,7 +1277,16 @@ app.get('/api/user/member-discounts', async (req, res) => {
         validUntil: d.validUntil || '',
         note: d.note || '',
       }));
-    res.json({ discounts });
+    res.json({
+      discounts,
+      specialDayDiscount: specialDayActive
+        ? {
+            active: true,
+            ...getSpecialDayDiscountMeta(todayStr),
+            appliesTo: 'all_reservation_businesses',
+          }
+        : { active: false },
+    });
   } catch (error) {
     console.error('User member discounts error:', error);
     res.status(500).json({ error: 'İndirimler alınamadı', discounts: [], message: error.message });
@@ -1227,7 +1321,7 @@ app.post('/api/business/:businessId/member-discount/check', async (req, res) => 
     if (!isValidMemberIdFormat(memberId)) {
       return res.status(400).json({ valid: false, error: 'Geçersiz üye numarası formatı (ör. 48X7K9M2)' });
     }
-    const user = await User.findOne({ memberId }).select('name surname memberId').lean();
+    const user = await User.findOne({ memberId }).select('name surname memberId specialDay').lean();
     if (!user) {
       return res.status(404).json({ valid: false, error: 'Bu üye numarasına kayıtlı kullanıcı bulunamadı' });
     }
@@ -1242,14 +1336,25 @@ app.post('/api/business/:businessId/member-discount/check', async (req, res) => 
       memberId,
       active: true,
     }).lean();
-    if (!discount) {
+    const expired = discount ? isMemberDiscountExpired(discount.validUntil) : false;
+    const todayStr = getTodayLocalStr();
+    const resolved = resolveMemberDiscountForBusiness({
+      user,
+      storedDiscount: discount,
+      isExpired: expired,
+      todayStr,
+    });
+
+    if (!resolved.valid) {
       return res.json({
         valid: false,
         error: 'Bu işletme için bu üyeye tanımlı aktif indirim yok',
         member,
+        specialDayActive: resolved.specialDayActive,
       });
     }
-    if (isMemberDiscountExpired(discount.validUntil)) {
+
+    if (discount && expired && !resolved.specialDayActive) {
       return res.json({
         valid: false,
         error: 'İndirim süresi dolmuş',
@@ -1263,15 +1368,12 @@ app.post('/api/business/:businessId/member-discount/check', async (req, res) => 
         },
       });
     }
+
     res.json({
       valid: true,
       member,
-      discount: {
-        title: discount.title || '',
-        description: discount.description || '',
-        discountPercent: discount.discountPercent,
-        validUntil: discount.validUntil || '',
-      },
+      discount: resolved.discount,
+      specialDayActive: resolved.specialDayActive,
     });
   } catch (error) {
     console.error('Member discount check error:', error);
@@ -1439,6 +1541,7 @@ app.get('/api/yoresel-etkinlik/isletmeler/:id/takvim', async (req, res) => {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: 'Veritabanı bağlantısı yok' });
     }
+    await runYoreselTalepExpiry();
     const { id } = req.params;
     const year = parseInt(String(req.query.year || new Date().getFullYear()), 10);
     if (!Number.isInteger(year) || year < 2020 || year > 2100) {
@@ -1446,25 +1549,15 @@ app.get('/api/yoresel-etkinlik/isletmeler/:id/takvim', async (req, res) => {
     }
     const isletme = await YoreselEtkinlikIsletme.findOne({ _id: id, active: true }).lean();
     if (!isletme) return res.status(404).json({ error: 'İşletme bulunamadı' });
-    const oid = new mongoose.Types.ObjectId(id);
     const taleps = await YoreselEtkinlikTalep.find({
-      allTargetIsletmeler: oid,
+      ...yoreselIsletmeTalepMatchFilter(id),
       date: { $regex: new RegExp(`^${year}-`) },
       status: { $ne: 'cancelled' },
     }).lean();
     const offeredTimeSlots = yoreselOfferedSlotsFromDoc(isletme);
     const byDate = {};
     taleps.forEach((t) => {
-      const eff = yoreselEffectiveStatusForIsletme(t, id);
-      if (!['pending', 'approved'].includes(eff)) return;
-      const d = t.date;
-      if (!byDate[d]) byDate[d] = emptyYoreselSlotDay();
-      const slotsOnDay = yoreselSlotsForIsletmeOnTalep(t, id);
-      slotsOnDay.forEach((slot) => {
-        if (!byDate[d][slot]) byDate[d][slot] = { pending: 0, approved: 0 };
-        if (eff === 'pending') byDate[d][slot].pending += 1;
-        else byDate[d][slot].approved += 1;
-      });
+      yoreselApplyTalepToCalendarByDate(byDate, t, id);
     });
     res.json({
       year,
@@ -1485,6 +1578,7 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: 'Veritabanı bağlantısı yok' });
     }
+    await runYoreselTalepExpiry();
     const body = req.body || {};
     const date = String(body.date || '').trim();
     const eventType = String(body.eventType || '').trim();
@@ -1517,6 +1611,12 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
     if (!userId) {
       if (!guestName) return res.status(400).json({ error: 'İsim soyisim gerekli' });
       if (!guestPhone) return res.status(400).json({ error: 'Cep telefonu gerekli' });
+    }
+    if (userId) {
+      const dailyCount = await countYoreselUserReservationsToday(userId);
+      if (dailyCount >= YORESEL_DAILY_RESERVATION_LIMIT) {
+        return res.status(429).json({ error: YORESEL_DAILY_LIMIT_MESSAGE, code: 'DAILY_LIMIT' });
+      }
     }
     let targetIsletme = null;
     const serviceTargets = {};
@@ -1611,7 +1711,12 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
       status: 'pending',
     });
     await talep.populate('user', 'name surname');
-    res.status(201).json({ message: 'Talebiniz iletildi', talep: talep.toObject() });
+    const dailyCountAfter = userId ? await countYoreselUserReservationsToday(userId) : 0;
+    res.status(201).json({
+      message: 'Talebiniz iletildi',
+      talep: talep.toObject(),
+      dailyLimitReached: userId ? dailyCountAfter >= YORESEL_DAILY_RESERVATION_LIMIT : false,
+    });
   } catch (e) {
     console.error('Yoresel etkinlik talep error:', e);
     res.status(500).json({ error: 'Talep oluşturulamadı', message: e.message });
@@ -1628,14 +1733,16 @@ app.get('/api/yoresel-isletme/:isletmeId/talepler', async (req, res) => {
     const date = String(req.query.date || '').trim();
     if (!mongoose.Types.ObjectId.isValid(isletmeId)) return res.status(400).json({ error: 'Geçersiz işletme' });
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Geçersiz tarih' });
+    await runYoreselTalepExpiry();
     const list = await YoreselEtkinlikTalep.find({
-      allTargetIsletmeler: new mongoose.Types.ObjectId(isletmeId),
+      ...yoreselIsletmeTalepMatchFilter(isletmeId),
       date,
     })
       .populate('user', 'name surname phone')
       .sort({ createdAt: -1 })
       .lean();
-    res.json({ talepler: list.map((t) => yoreselEnrichTalepForIsletme(t, isletmeId)) });
+    const filtered = list.filter((t) => yoreselIsletmeTalepActiveForCalendar(t, isletmeId));
+    res.json({ talepler: filtered.map((t) => yoreselEnrichTalepForIsletme(t, isletmeId)) });
   } catch (e) {
     console.error('Yoresel isletme date list error:', e);
     res.status(500).json({ error: 'Liste alınamadı', talepler: [] });
@@ -1650,9 +1757,9 @@ app.get('/api/yoresel-isletme/:isletmeId/talepler/pending', async (req, res) => 
     }
     const { isletmeId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(isletmeId)) return res.status(400).json({ error: 'Geçersiz işletme' });
-    const oid = new mongoose.Types.ObjectId(isletmeId);
+    await runYoreselTalepExpiry();
     const list = await YoreselEtkinlikTalep.find({
-      allTargetIsletmeler: oid,
+      ...yoreselIsletmeTalepMatchFilter(isletmeId),
       status: { $ne: 'cancelled' },
     })
       .populate('user', 'name surname phone')
@@ -1689,7 +1796,24 @@ app.patch('/api/yoresel-isletme/:isletmeId/talepler/:talepId', async (req, res) 
     yoreselEnsureIsletmeStatuses(talep);
     const entry = talep.isletmeStatuses.find((e) => String(e.isletme) === String(isletmeId));
     if (!entry) return res.status(404).json({ error: 'Bu talepte işletme kaydı bulunamadı' });
+    if (status === 'approved') {
+      const slotsToApprove = yoreselSlotsForIsletmeOnTalep(talep, isletmeId);
+      for (const slot of slotsToApprove) {
+        const { conflict, existingSlot } = await yoreselIsletmeSlotConflict(
+          isletmeId,
+          talep.date,
+          slot,
+          talepId
+        );
+        if (conflict) {
+          return res.status(409).json({
+            error: `${talep.date} tarihinde ${YORESEL_TIME_SLOT_LABELS[existingSlot] || existingSlot} dilimi dolu; onaylanamaz`,
+          });
+        }
+      }
+    }
     entry.status = status;
+    if (status === 'rejected') entry.autoRejected = false;
     yoreselRecomputeAggregateStatusFromIsletmeRows(talep);
     talep.markModified('isletmeStatuses');
     await talep.save();
@@ -2114,18 +2238,25 @@ app.get('/api/user/yoresel-talepler', async (req, res) => {
       return res.status(400).json({ error: 'Geçerli userId gerekli', talepler: [] });
     }
     const uid = String(userId).trim();
+    await runYoreselTalepExpiry();
     const talepler = await YoreselEtkinlikTalep.find({ user: uid })
       .sort({ date: -1, createdAt: -1 })
       .lean();
     const idSet = new Set();
     talepler.forEach((t) => {
       (t.allTargetIsletmeler || []).forEach((x) => idSet.add(String(x)));
+      const keys = ['muzisyen', 'asci', 'susleme', 'zurna', 'parkSalon', 'mekan', 'kuafor', 'aracKiralama'];
+      keys.forEach((key) => {
+        const issId = t.serviceTargets && t.serviceTargets[key];
+        if (issId != null) idSet.add(String(issId));
+      });
     });
     const ids = [...idSet].filter((x) => mongoose.Types.ObjectId.isValid(x)).map((x) => new mongoose.Types.ObjectId(x));
     const isims = ids.length
-      ? await YoreselEtkinlikIsletme.find({ _id: { $in: ids } }).select('name').lean()
+      ? await YoreselEtkinlikIsletme.find({ _id: { $in: ids } }).select('name phone').lean()
       : [];
     const nameById = Object.fromEntries(isims.map((n) => [String(n._id), n.name || 'İşletme']));
+    const phoneById = Object.fromEntries(isims.map((n) => [String(n._id), n.phone || '']));
     const enriched = talepler.map((t) => {
       const serviceLines = [];
       const keys = ['muzisyen', 'asci', 'susleme', 'zurna', 'parkSalon', 'mekan', 'kuafor', 'aracKiralama'];
@@ -2134,18 +2265,32 @@ app.get('/api/user/yoresel-talepler', async (req, res) => {
         const issId = t.serviceTargets && t.serviceTargets[key];
         const sid = issId != null ? String(issId) : '';
         const slot = yoreselTimeSlotForService(t, key);
+        const row = sid && Array.isArray(t.isletmeStatuses)
+          ? t.isletmeStatuses.find((x) => String(x.isletme) === sid)
+          : null;
+        const lineStatus = sid ? yoreselEffectiveStatusForIsletme(t, sid) : 'pending';
+        const lineStatusLabel = yoreselStatusLabelForIsletme(row, lineStatus);
         serviceLines.push({
           serviceKey: key,
           label: YORESEL_SERVICE_LABELS[key] || key,
           isletmeId: sid || null,
           isletmeName: sid ? (nameById[sid] || 'İşletme') : 'İşletme atanmadı',
-          status: sid ? yoreselEffectiveStatusForIsletme(t, sid) : 'pending',
+          isletmePhone: sid ? (phoneById[sid] || '') : '',
+          status: lineStatus,
+          autoRejected: !!(row && row.autoRejected),
+          statusLabel: lineStatusLabel || undefined,
           timeSlot: slot,
           timeSlotLabel: YORESEL_TIME_SLOT_LABELS[slot] || slot,
         });
       });
       const slotLabels = serviceLines.map((l) => l.timeSlotLabel);
       const uniqueSlotLabels = [...new Set(slotLabels)];
+      const aggregateStatusLabel =
+        serviceLines.length > 0 && serviceLines.every((l) => l.status === 'rejected' && l.autoRejected)
+          ? YORESEL_AUTO_REJECT_LABEL
+          : t.autoRejectedAt && t.status === 'rejected'
+            ? YORESEL_AUTO_REJECT_LABEL
+            : undefined;
       return {
         ...t,
         eventTypeLabel: YORESEL_EVENT_LABELS[t.eventType] || t.eventType,
@@ -2156,6 +2301,7 @@ app.get('/api/user/yoresel-talepler', async (req, res) => {
             : YORESEL_TIME_SLOT_LABELS[normalizeYoreselTimeSlot(t.timeSlot)] || t.timeSlot,
         serviceLines,
         aggregateStatus: t.status,
+        aggregateStatusLabel,
       };
     });
     res.json({ talepler: enriched });
@@ -3784,6 +3930,8 @@ app.listen(PORT, '0.0.0.0', () => {
     }
   };
   setTimeout(checkDb, 6000);
+  setTimeout(runYoreselTalepExpiry, 10000);
+  setInterval(runYoreselTalepExpiry, 15 * 60 * 1000);
 });
 
 

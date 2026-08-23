@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
   Clipboard,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
@@ -43,11 +44,26 @@ const YORESEL_AGG_LABELS = {
   cancelled: 'İptal edildi',
 };
 
+const YORESEL_AUTO_REJECT_LABEL = 'Zaman aşımı, otomatik reddedilmiştir.';
+
+function callIsletmePhone(phone) {
+  const tel = String(phone || '').replace(/\D/g, '');
+  if (!tel) return;
+  Alert.alert('Ara', String(phone), [
+    { text: 'İptal', style: 'cancel' },
+    {
+      text: 'Ara',
+      onPress: () => Linking.openURL(`tel:${tel}`).catch(() => Alert.alert('Hata', 'Arama başlatılamadı')),
+    },
+  ]);
+}
+
 export default function ProfileScreen() {
   const [appUser, setAppUser] = useState(null);
   const [reservations, setReservations] = useState([]);
   const [yoreselTalepler, setYoreselTalepler] = useState([]);
   const [memberDiscounts, setMemberDiscounts] = useState([]);
+  const [specialDayDiscount, setSpecialDayDiscount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cancellingId, setCancellingId] = useState('');
@@ -103,6 +119,7 @@ export default function ProfileScreen() {
       setReservations([]);
       setYoreselTalepler([]);
       setMemberDiscounts([]);
+      setSpecialDayDiscount(null);
       return;
     }
     try {
@@ -123,8 +140,10 @@ export default function ProfileScreen() {
       const resD = await fetch(apiUrl(`/api/user/member-discounts?userId=${encodeURIComponent(userId)}`));
       const dataD = await resD.json().catch(() => ({}));
       setMemberDiscounts(Array.isArray(dataD.discounts) ? dataD.discounts : []);
+      setSpecialDayDiscount(dataD.specialDayDiscount?.active ? dataD.specialDayDiscount : null);
     } catch {
       setMemberDiscounts([]);
+      setSpecialDayDiscount(null);
     }
   }, []);
 
@@ -246,6 +265,18 @@ export default function ProfileScreen() {
         )}
       </View>
 
+      {specialDayDiscount ? (
+        <View style={styles.section}>
+          <View style={styles.specialDayCard}>
+            <Text style={styles.specialDayTitle}>🎉 Bugün özel gününüz!</Text>
+            <Text style={styles.specialDayText}>
+              Rezervasyon bölümündeki tüm işletmelerde %{specialDayDiscount.discountPercent || 10} indirim
+              geçerlidir. Üye numaranızı işletmeye gösterin.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {appUser?.memberId && memberDiscounts.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>İndirimlerim</Text>
@@ -356,7 +387,10 @@ export default function ProfileScreen() {
                 {t.eventTypeLabel || t.eventType} · {formatDateLabel(t.date)}
               </Text>
               <Text style={styles.yoreselAgg}>
-                Talep özeti: {YORESEL_AGG_LABELS[t.aggregateStatus] || t.aggregateStatus}
+                Talep özeti:{' '}
+                {t.aggregateStatusLabel
+                  || YORESEL_AGG_LABELS[t.aggregateStatus]
+                  || t.aggregateStatus}
               </Text>
               {(t.serviceLines || []).map((line) => (
                 <View key={`${t._id}-${line.serviceKey}`} style={styles.yoreselLine}>
@@ -364,15 +398,27 @@ export default function ProfileScreen() {
                     {line.label}: {line.isletmeName}
                     {line.timeSlotLabel ? ` · ${line.timeSlotLabel}` : ''}
                   </Text>
+                  {line.isletmePhone ? (
+                    <TouchableOpacity
+                      style={styles.phoneTouch}
+                      onPress={() => callIsletmePhone(line.isletmePhone)}
+                    >
+                      <Text style={styles.phone}>📞 {line.isletmePhone}</Text>
+                    </TouchableOpacity>
+                  ) : null}
                   <Text
                     style={[
                       styles.yoreselLineStatus,
                       line.status === 'approved' && styles.status_approved,
                       line.status === 'rejected' && styles.status_rejected,
                       line.status === 'pending' && styles.status_pending,
+                      line.autoRejected && styles.status_autoRejected,
                     ]}
                   >
-                    {YORESEL_LINE_STATUS[line.status] || line.status}
+                    {line.statusLabel
+                      || (line.autoRejected ? YORESEL_AUTO_REJECT_LABEL : null)
+                      || YORESEL_LINE_STATUS[line.status]
+                      || line.status}
                   </Text>
                 </View>
               ))}
@@ -503,6 +549,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
+  specialDayCard: {
+    backgroundColor: '#e8f8ec',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#34C759',
+  },
+  specialDayTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1b5e20',
+    marginBottom: 8,
+  },
+  specialDayText: {
+    fontSize: 14,
+    color: '#2e7d32',
+    lineHeight: 20,
+  },
   discountCard: {
     backgroundColor: '#fff8e1',
     borderRadius: 10,
@@ -603,6 +667,7 @@ const styles = StyleSheet.create({
   status_pending: { color: '#e67e22' },
   status_approved: { color: '#34C759' },
   status_rejected: { color: '#c0392b' },
+  status_autoRejected: { color: '#7f8c8d', fontStyle: 'italic' },
   status_completed: { color: '#27ae60' },
   status_no_show: { color: '#95a5a6' },
   status_cancelled: { color: '#7f8c8d' },
@@ -645,6 +710,16 @@ const styles = StyleSheet.create({
   yoreselLineStatus: {
     fontSize: 13,
     marginTop: 2,
+    fontWeight: '600',
+  },
+  phoneTouch: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  phone: {
+    fontSize: 14,
+    color: '#1565C0',
     fontWeight: '600',
   },
   cancelBtn: {

@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const User = require('../models/User');
+const { isTodayUsersSpecialDay, SPECIAL_DAY_DISCOUNT_PERCENT } = require('./specialDayDiscount');
 
 const MEMBER_ID_PREFIX = '48';
 const MEMBER_ID_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXY';
@@ -41,6 +42,7 @@ async function ensureUserMemberId(userDoc) {
 
 function formatUserForClient(userDoc) {
   if (!userDoc) return null;
+  const specialDayDiscountToday = isTodayUsersSpecialDay(userDoc.specialDay);
   return {
     id: userDoc._id,
     memberId: userDoc.memberId ? normalizeMemberId(userDoc.memberId) : '',
@@ -53,6 +55,8 @@ function formatUserForClient(userDoc) {
       district: userDoc.address?.district != null ? String(userDoc.address.district).trim() : '',
       neighborhood: userDoc.address?.neighborhood != null ? String(userDoc.address.neighborhood).trim() : '',
     },
+    specialDayDiscountToday,
+    specialDayDiscountPercent: specialDayDiscountToday ? SPECIAL_DAY_DISCOUNT_PERCENT : null,
   };
 }
 
