@@ -72,6 +72,24 @@ const {
 } = require('./utils/yoreselTalepExpiry');
 const registerPremiumRoutes = require('./routes/premiumRoutes');
 const { getOnDutyPharmacies } = require('./utils/onDutyPharmacies');
+const {
+  YORESEL_DAILY_RESERVATION_LIMIT,
+  YORESEL_PERIOD_DAYS,
+  YORESEL_PERIOD_RESERVATION_LIMIT,
+  YORESEL_DAILY_LIMIT_MESSAGE,
+  YORESEL_PERIOD_LIMIT_MESSAGE,
+  MEMBER_REQUIRED_MESSAGE,
+  BUSINESS_DAILY_PER_ACTIVITY_LIMIT,
+  BUSINESS_ACTIVE_RESERVATION_LIMIT,
+  BUSINESS_ACTIVE_LIMIT_MESSAGE,
+  kvkkConsentAccepted,
+  wouldExceedLimit,
+  businessActivityDailyLimitMessage,
+  countYoreselUserReservationsToday: countYoreselTodayUtil,
+  countYoreselUserReservationsLastDays: countYoreselLastDaysUtil,
+  countUserReservationsForActivityOnDate: countActivityReservationsUtil,
+  countUserActiveReservations: countActiveReservationsUtil,
+} = require('./utils/reservationLimits');
 
 const YORESEL_SERVICE_LABELS = {
   muzisyen: 'Müzisyen',
@@ -389,81 +407,26 @@ function getTodayLocalStr() {
   return `${y}-${m}-${day}`;
 }
 
-const YORESEL_DAILY_RESERVATION_LIMIT = 2;
-const YORESEL_PERIOD_DAYS = 30;
-const YORESEL_PERIOD_RESERVATION_LIMIT = 3;
-const YORESEL_DAILY_LIMIT_MESSAGE = 'Günlük Yöresel Etkinlik rezervasyon limitine ulaştınız.';
-const YORESEL_PERIOD_LIMIT_MESSAGE = '30 gün içindeki Yöresel Etkinlik rezervasyon limitine ulaştınız.';
-
-function getLocalDayRange() {
-  const d = new Date();
-  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
-  return { start, end };
-}
-
-function yoreselMemberTalepFilter(userId, createdAt) {
-  return {
-    user: userId,
-    manualEntry: { $ne: true },
-    createdAt,
-  };
-}
-
 async function countYoreselUserReservationsToday(userId) {
-  if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return 0;
-  const { start, end } = getLocalDayRange();
-  return YoreselEtkinlikTalep.countDocuments(yoreselMemberTalepFilter(userId, { $gte: start, $lt: end }));
+  return countYoreselTodayUtil(YoreselEtkinlikTalep, userId);
 }
 
 async function countYoreselUserReservationsLastDays(userId, days) {
-  if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return 0;
-  const { end } = getLocalDayRange();
-  const start = new Date(end);
-  start.setDate(start.getDate() - days);
-  return YoreselEtkinlikTalep.countDocuments(yoreselMemberTalepFilter(userId, { $gte: start, $lt: end }));
+  return countYoreselLastDaysUtil(YoreselEtkinlikTalep, userId, days);
 }
-
-const MEMBER_REQUIRED_MESSAGE = 'Rezervasyon için üye girişi yapmalısınız';
-
-const BUSINESS_DAILY_PER_ACTIVITY_LIMIT = 2;
-const BUSINESS_ACTIVITY_LABELS = {
-  restorant: 'Restoran',
-  cafe_bar: 'Cafe / Bar',
-  tekne_turu: 'Tekne turu',
-  plaj_beach: 'Plaj / Beach',
-};
 
 async function countUserReservationsForActivityOnDate(userId, activityField, date, fallbackBusinessId = null) {
-  const match = { user: userId, date, status: { $ne: 'rejected' } };
-  if (activityField) {
-    const businesses = await Business.find({ activityField }).select('_id').lean();
-    const ids = businesses.map((b) => b._id);
-    if (!ids.length) return 0;
-    match.business = { $in: ids };
-  } else if (fallbackBusinessId) {
-    match.business = fallbackBusinessId;
-  } else {
-    return 0;
-  }
-  return Reservation.countDocuments(match);
+  return countActivityReservationsUtil(
+    { Business, Reservation },
+    userId,
+    activityField,
+    date,
+    fallbackBusinessId
+  );
 }
-
-function businessActivityDailyLimitMessage(activityField) {
-  const label = BUSINESS_ACTIVITY_LABELS[activityField] || 'Bu faaliyet alanı';
-  return `${label} için aynı günde en fazla ${BUSINESS_DAILY_PER_ACTIVITY_LIMIT} rezervasyon yapabilirsiniz.`;
-}
-
-const BUSINESS_ACTIVE_RESERVATION_LIMIT = 5;
-const BUSINESS_ACTIVE_STATUSES = ['pending', 'approved'];
-const BUSINESS_ACTIVE_LIMIT_MESSAGE =
-  'Aynı anda en fazla 5 onay bekleyen veya onaylanmış rezervasyonunuz olabilir.';
 
 async function countUserActiveReservations(userId) {
-  return Reservation.countDocuments({
-    user: userId,
-    status: { $in: BUSINESS_ACTIVE_STATUSES },
-  });
+  return countActiveReservationsUtil(Reservation, userId);
 }
 
 async function requireMemberUser(userIdRaw) {
@@ -546,7 +509,9 @@ const {
 } = require('./utils/addressMatch');
 
 // Connect to database
-connectDB();
+if (process.env.NODE_ENV !== 'test') {
+  connectDB();
+}
 
 const PREMIUM_OWNER = buildPremiumOwnerConfig({
   Business,
@@ -824,9 +789,7 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ error: 'Özel gün tarihi geçersiz. GG/AA/YYYY girin.' });
     }
 
-    const kvkkPhone = kvkkConsent?.phoneShare === true || kvkkConsent?.phoneShare === 'true';
-    const kvkkLocation = kvkkConsent?.location === true || kvkkConsent?.location === 'true';
-    if (!kvkkPhone || !kvkkLocation) {
+    if (!kvkkConsentAccepted(kvkkConsent)) {
       return res.status(400).json({
         error: 'Kayıt için KVKK kapsamında telefon paylaşımı ve konum kullanımı açık rızası zorunludur.',
       });
@@ -1677,11 +1640,11 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
       return res.status(authErr.status || 401).json({ error: authErr.message || MEMBER_REQUIRED_MESSAGE });
     }
     const dailyCount = await countYoreselUserReservationsToday(userId);
-    if (dailyCount >= YORESEL_DAILY_RESERVATION_LIMIT) {
+    if (wouldExceedLimit(dailyCount, YORESEL_DAILY_RESERVATION_LIMIT)) {
       return res.status(429).json({ error: YORESEL_DAILY_LIMIT_MESSAGE, code: 'DAILY_LIMIT' });
     }
     const periodCount = await countYoreselUserReservationsLastDays(userId, YORESEL_PERIOD_DAYS);
-    if (periodCount >= YORESEL_PERIOD_RESERVATION_LIMIT) {
+    if (wouldExceedLimit(periodCount, YORESEL_PERIOD_RESERVATION_LIMIT)) {
       return res.status(429).json({ error: YORESEL_PERIOD_LIMIT_MESSAGE, code: 'PERIOD_LIMIT' });
     }
     let targetIsletme = null;
@@ -2560,7 +2523,7 @@ app.post('/api/reservations', async (req, res) => {
       return res.status(400).json({ error: 'Seçilen saat işletmenin açılış-kapanış saatleri dışında veya kapalı bir gün.' });
     }
     const activeCount = await countUserActiveReservations(memberId);
-    if (activeCount >= BUSINESS_ACTIVE_RESERVATION_LIMIT) {
+    if (wouldExceedLimit(activeCount, BUSINESS_ACTIVE_RESERVATION_LIMIT)) {
       return res.status(429).json({
         error: BUSINESS_ACTIVE_LIMIT_MESSAGE,
         code: 'ACTIVE_RESERVATION_LIMIT',
@@ -2573,7 +2536,7 @@ app.post('/api/reservations', async (req, res) => {
       normalizedDate,
       business._id
     );
-    if (sameDayCount >= BUSINESS_DAILY_PER_ACTIVITY_LIMIT) {
+    if (wouldExceedLimit(sameDayCount, BUSINESS_DAILY_PER_ACTIVITY_LIMIT)) {
       return res.status(429).json({
         error: businessActivityDailyLimitMessage(activityField),
         code: 'ACTIVITY_DAILY_LIMIT',
@@ -4009,26 +3972,29 @@ app.use((req, res) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📱 API endpoints available at http://localhost:${PORT}/api`);
-  console.log(`📶 Aynı Wi-Fi'daki telefon için: http://<bilgisayar-ip>:${PORT}/api`);
-  // MongoDB bağlantı durumu (connectDB asenkron, birkaç saniye sonra güncellenir)
-  const checkDb = () => {
-    if (mongoose.connection.readyState === 1) {
-      console.log('✅ MongoDB connected successfully');
-    } else {
-      console.log('⏳ MongoDB bağlantısı bekleniyor veya bağlı değil (kayıt/giriş çalışmaz).');
-      console.log('   → Atlas kullanıyorsanız: Network Access\'te IP ekleyin (0.0.0.0/0). Şifreyi .env\'de URL encode edin.');
-      setTimeout(() => {
-        if (mongoose.connection.readyState === 1) console.log('✅ MongoDB bağlandı.');
-        else console.log('   Hâlâ bağlı değil. .env MONGODB_URI ve Atlas ayarlarını kontrol edin.');
-      }, 8000);
-    }
-  };
-  setTimeout(checkDb, 6000);
-  setTimeout(runYoreselTalepExpiry, 10000);
-  setInterval(runYoreselTalepExpiry, 15 * 60 * 1000);
-});
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    console.log(`📱 API endpoints available at http://localhost:${PORT}/api`);
+    console.log(`📶 Aynı Wi-Fi'daki telefon için: http://<bilgisayar-ip>:${PORT}/api`);
+    const checkDb = () => {
+      if (mongoose.connection.readyState === 1) {
+        console.log('✅ MongoDB connected successfully');
+      } else {
+        console.log('⏳ MongoDB bağlantısı bekleniyor veya bağlı değil (kayıt/giriş çalışmaz).');
+        console.log('   → Atlas kullanıyorsanız: Network Access\'te IP ekleyin (0.0.0.0/0). Şifreyi .env\'de URL encode edin.');
+        setTimeout(() => {
+          if (mongoose.connection.readyState === 1) console.log('✅ MongoDB bağlandı.');
+          else console.log('   Hâlâ bağlı değil. .env MONGODB_URI ve Atlas ayarlarını kontrol edin.');
+        }, 8000);
+      }
+    };
+    setTimeout(checkDb, 6000);
+    setTimeout(runYoreselTalepExpiry, 10000);
+    setInterval(runYoreselTalepExpiry, 15 * 60 * 1000);
+  });
+}
+
+module.exports = app;
 
 

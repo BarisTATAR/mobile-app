@@ -193,9 +193,11 @@ async function persistYoreselSession(loginName, isletmeler, selectedIsletmeId, m
   );
 }
 
+const EMPTY_VENUES = [];
+
 export default function YoreselBusinessMainScreen({ route, navigation }) {
   const {
-    isletmeler: routeIsletmeler = [],
+    isletmeler: routeIsletmeler = EMPTY_VENUES,
     selectedIsletmeId: routeSelectedId,
     loginName: routeLoginName = '',
     multiVenueLogin: routeMultiVenueLogin,

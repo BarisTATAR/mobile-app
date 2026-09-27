@@ -227,6 +227,7 @@ export default function SignUpScreen({ navigation }) {
               <View ref={passwordContainerRef} style={styles.inputContainer}>
                 <Text style={styles.label}>Şifre</Text>
                 <TextInput
+                  testID="signup-password"
                   style={styles.input}
                   placeholder="Şifrenizi girin (en az 6 karakter)"
                   placeholderTextColor="#999"
@@ -255,6 +256,7 @@ export default function SignUpScreen({ navigation }) {
                     styles.input,
                     passwordRepeatTouched && !passwordsMatch && styles.inputError,
                   ]}
+                  testID="signup-password-repeat"
                   placeholder="Şifrenizi tekrar girin"
                   placeholderTextColor="#999"
                   value={passwordRepeat}
@@ -317,6 +319,7 @@ export default function SignUpScreen({ navigation }) {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Doğum Tarihi</Text>
                 <TextInput
+                  testID="signup-birth-date"
                   style={styles.input}
                   placeholder="GG/AA/YYYY"
                   placeholderTextColor="#999"
@@ -431,6 +434,7 @@ export default function SignUpScreen({ navigation }) {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  testID="signup-submit"
                   style={[
                     styles.signUpButton,
                     (loading || (passwordRepeatTouched && !passwordsMatch) || !kvkkPhoneShare || !kvkkLocation) && styles.signUpButtonDisabled,

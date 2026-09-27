@@ -177,4 +177,5 @@ async function getOnDutyPharmacies(city, district) {
 module.exports = {
   getOnDutyPharmacies,
   foldTr,
+  filterByDistrict,
 };

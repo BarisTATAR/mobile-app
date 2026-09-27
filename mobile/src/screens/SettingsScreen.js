@@ -14,7 +14,7 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
+      <TouchableOpacity testID="logout-button" style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
         <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
       </TouchableOpacity>
     </View>

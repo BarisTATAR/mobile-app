@@ -126,6 +126,7 @@ export default function UserLoginScreen({ navigation }) {
             </TouchableOpacity>
 
             <TouchableOpacity
+              testID="login-submit"
               style={[styles.loginButton, loading && styles.loginButtonDisabled]}
               onPress={handleLogin}
               activeOpacity={0.8}

@@ -103,6 +103,7 @@ export default function HomeScreen({ navigation, route }) {
     return (
       <TouchableOpacity
         key={item.id}
+        testID={`home-card-${item.id}`}
         style={[styles.card, disabled && styles.cardDisabled]}
         onPress={() => handlePress(item)}
         activeOpacity={0.8}

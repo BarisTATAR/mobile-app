@@ -67,7 +67,7 @@ export default function LoginScreen({ navigation }) {
   const content = (
     <View style={styles.content}>
       <View style={styles.topRow}>
-        <TouchableOpacity style={styles.cornerBtn} onPress={handleCustomerLogin} activeOpacity={0.8}>
+        <TouchableOpacity testID="login-business" style={styles.cornerBtn} onPress={handleCustomerLogin} activeOpacity={0.8}>
           <Text style={[styles.cornerBtnText, hasBackground ? styles.cornerBtnTextOverlay : styles.cornerBtnTextPlain]}>İşletme</Text>
         </TouchableOpacity>
       </View>
@@ -79,6 +79,7 @@ export default function LoginScreen({ navigation }) {
 
       <View style={styles.buttonContainer}>
           <TouchableOpacity
+            testID="login-user"
             style={styles.button}
             onPress={handleUsernameLogin}
             activeOpacity={0.8}
@@ -86,6 +87,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.buttonText}>Kullanıcı Girişi</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            testID="login-signup"
             style={styles.signUpUnderButton}
             onPress={() => navigation.navigate('SignUp')}
             activeOpacity={0.8}
@@ -93,6 +95,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={[styles.signUpText, hasBackground ? styles.signUpTextOverlay : styles.signUpTextPlain]}>Kullanıcı Üye Ol</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            testID="login-guest"
             style={styles.guestButton}
             onPress={() => navigation.replace('Main', { screen: 'Home', params: { guest: true } })}
             activeOpacity={0.8}
