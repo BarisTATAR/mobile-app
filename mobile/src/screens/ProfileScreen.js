@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
   TouchableOpacity,
   Alert,
   Clipboard,
@@ -64,7 +63,7 @@ export default function ProfileScreen() {
   const [yoreselTalepler, setYoreselTalepler] = useState([]);
   const [memberDiscounts, setMemberDiscounts] = useState([]);
   const [specialDayDiscount, setSpecialDayDiscount] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [listsLoading, setListsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cancellingId, setCancellingId] = useState('');
 
@@ -84,6 +83,7 @@ export default function ProfileScreen() {
         setAppUser(null);
         return null;
       }
+      setAppUser(user);
       try {
         const res = await fetch(apiUrl(`/api/user/profile?userId=${encodeURIComponent(user.id)}`));
         const data = await res.json().catch(() => ({}));
@@ -151,7 +151,7 @@ export default function ProfileScreen() {
     setRefreshing(true);
     const userId = await loadUser();
     await loadReservations(userId);
-    setLoading(false);
+    setListsLoading(false);
     setRefreshing(false);
   }, [loadUser, loadReservations]);
 
@@ -193,14 +193,20 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    loadUser()
-      .then(async (userId) => {
-        if (!cancelled) await loadReservations(userId);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(APP_USER_KEY);
+        if (cancelled) return;
+        const cached = raw ? JSON.parse(raw) : null;
+        setAppUser(cached?.id ? cached : null);
+      } catch {
+        if (!cancelled) setAppUser(null);
+      }
+      if (cancelled) return;
+      const userId = await loadUser();
+      if (!cancelled) await loadReservations(userId);
+      if (!cancelled) setListsLoading(false);
+    })();
     return () => { cancelled = true; };
   }, [loadUser, loadReservations]);
 
@@ -215,14 +221,6 @@ export default function ProfileScreen() {
   const pastList = reservations
     .filter((r) => r.date < todayStr || ['rejected', 'completed', 'no_show', 'cancelled'].includes(r.status))
     .sort((a, b) => (a.date !== b.date ? b.date.localeCompare(a.date) : (b.slot || '').localeCompare(a.slot || '')));
-
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#34C759" />
-      </View>
-    );
-  }
 
   return (
     <ScrollView
@@ -327,7 +325,9 @@ export default function ProfileScreen() {
         <Text style={styles.subSectionTitle}>Onay bekleyen rezervasyonlarım</Text>
         <Text style={styles.sectionHint}>Tarih sırasına göre (yakın tarih önce)</Text>
         {pendingList.length === 0 ? (
-          <Text style={styles.emptyText}>Onay bekleyen rezervasyonunuz yok.</Text>
+          <Text style={styles.emptyText}>
+            {listsLoading ? 'Yükleniyor…' : 'Onay bekleyen rezervasyonunuz yok.'}
+          </Text>
         ) : (
           pendingList.map((r) => (
             <View key={r._id} style={[styles.resCard, styles.resCardPending]}>
@@ -350,7 +350,9 @@ export default function ProfileScreen() {
         <Text style={[styles.subSectionTitle, { marginTop: 16 }]}>Onaylanan rezervasyonlarım</Text>
         <Text style={styles.sectionHint}>Tarih sırasına göre (yakın tarih önce)</Text>
         {approvedList.length === 0 ? (
-          <Text style={styles.emptyText}>Onaylanan rezervasyonunuz yok.</Text>
+          <Text style={styles.emptyText}>
+            {listsLoading ? 'Yükleniyor…' : 'Onaylanan rezervasyonunuz yok.'}
+          </Text>
         ) : (
           approvedList.map((r) => (
             <View key={r._id} style={styles.resCard}>
@@ -379,7 +381,9 @@ export default function ProfileScreen() {
         {!appUser?.id ? (
           <Text style={styles.emptyText}>Giriş yaparak yöresel taleplerinizi görüntüleyebilirsiniz.</Text>
         ) : yoreselTalepler.length === 0 ? (
-          <Text style={styles.emptyText}>Yöresel etkinlik talebiniz yok.</Text>
+          <Text style={styles.emptyText}>
+            {listsLoading ? 'Yükleniyor…' : 'Yöresel etkinlik talebiniz yok.'}
+          </Text>
         ) : (
           yoreselTalepler.map((t) => (
             <View key={t._id} style={styles.yoreselCard}>
@@ -431,7 +435,9 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitle}>Geçmiş rezervasyonlarım</Text>
         <Text style={styles.sectionHint}>Tarih sırasına göre (yeniden eskiye)</Text>
         {pastList.length === 0 ? (
-          <Text style={styles.emptyText}>Geçmiş rezervasyonunuz yok.</Text>
+          <Text style={styles.emptyText}>
+            {listsLoading ? 'Yükleniyor…' : 'Geçmiş rezervasyonunuz yok.'}
+          </Text>
         ) : (
           pastList.map((r) => (
             <View key={r._id} style={[styles.resCard, styles.resCardPast]}>
@@ -454,12 +460,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   profileHeader: {
     alignItems: 'center',

@@ -20,6 +20,10 @@ import {
   DEFAULT_CITY,
 } from '../services/turkeyAddressService';
 import { digitsOnly } from '../utils/phoneInput';
+import { formatDateWithSlashes, parseTrDateParts } from '../utils/dateInput';
+import { warmupAfterFirstPaint } from '../services/appWarmup';
+
+const KVKK_TEXT_VERSION = '2026-09-23';
 
 export default function SignUpScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -42,6 +46,9 @@ export default function SignUpScreen({ navigation }) {
   const [showNeighborhoodModal, setShowNeighborhoodModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
+  const [kvkkPhoneShare, setKvkkPhoneShare] = useState(false);
+  const [kvkkLocation, setKvkkLocation] = useState(false);
+  const [showKvkkModal, setShowKvkkModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef(null);
   const passwordContainerRef = useRef(null);
@@ -60,6 +67,7 @@ export default function SignUpScreen({ navigation }) {
 
   // İlleri yükle, varsayılan Muğla için ilçeleri doldur
   useEffect(() => {
+    warmupAfterFirstPaint();
     let cancelled = false;
     (async () => {
       const list = await getProvinces();
@@ -113,8 +121,27 @@ export default function SignUpScreen({ navigation }) {
       return;
     }
 
+    const birth = parseTrDateParts(dateOfBirth);
+    const special = parseTrDateParts(specialDay);
+    if (!birth) {
+      Alert.alert('Hata', 'Doğum tarihini GG/AA/YYYY olarak girin.');
+      return;
+    }
+    if (!special) {
+      Alert.alert('Hata', 'Özel gün tarihini GG/AA/YYYY olarak girin.');
+      return;
+    }
+
     if (password.length < 6) {
       Alert.alert('Hata', 'Şifre en az 6 karakter olmalıdır');
+      return;
+    }
+
+    if (!kvkkPhoneShare || !kvkkLocation) {
+      Alert.alert(
+        'KVKK onayı gerekli',
+        'Kayıt olmak için cep telefonu paylaşımı ve konum kullanımı açık rızalarını onaylamalısınız.'
+      );
       return;
     }
 
@@ -132,12 +159,17 @@ export default function SignUpScreen({ navigation }) {
           name: name.trim(),
           surname: surname.trim(),
           phone: phone.trim(),
-          dateOfBirth: dateOfBirth.trim(),
-          specialDay: specialDay.trim(),
+          dateOfBirth: birth.stored,
+          specialDay: special.stored,
           address: {
             city: city.trim(),
             district: district.trim(),
             neighborhood: neighborhood.trim(),
+          },
+          kvkkConsent: {
+            phoneShare: true,
+            location: true,
+            textVersion: KVKK_TEXT_VERSION,
           },
         }),
       });
@@ -286,11 +318,12 @@ export default function SignUpScreen({ navigation }) {
                 <Text style={styles.label}>Doğum Tarihi</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="GG.AA.YYYY"
+                  placeholder="GG/AA/YYYY"
                   placeholderTextColor="#999"
                   value={dateOfBirth}
-                  onChangeText={setDateOfBirth}
-                  keyboardType="numeric"
+                  onChangeText={(t) => setDateOfBirth(formatDateWithSlashes(t))}
+                  keyboardType="number-pad"
+                  maxLength={10}
                 />
               </View>
 
@@ -298,11 +331,12 @@ export default function SignUpScreen({ navigation }) {
                 <Text style={styles.label}>Yıldönümü / Özel Gün</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Özel gün tarihi (GG.AA.YYYY)"
+                  placeholder="GG/AA/YYYY"
                   placeholderTextColor="#999"
                   value={specialDay}
-                  onChangeText={setSpecialDay}
-                  keyboardType="numeric"
+                  onChangeText={(t) => setSpecialDay(formatDateWithSlashes(t))}
+                  keyboardType="number-pad"
+                  maxLength={10}
                 />
               </View>
 
@@ -318,7 +352,7 @@ export default function SignUpScreen({ navigation }) {
                   disabled={addressLoading}
                 >
                   <Text style={[styles.selectText, !city && styles.selectPlaceholder]}>
-                    {addressLoading ? 'Yükleniyor...' : (city || 'İl seçin')}
+                    {city || (addressLoading ? 'Yükleniyor...' : 'İl seçin')}
                   </Text>
                   <Text style={styles.selectArrow}>▼</Text>
                 </TouchableOpacity>
@@ -352,6 +386,41 @@ export default function SignUpScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
 
+              <View style={styles.kvkkBox}>
+                <Text style={styles.kvkkTitle}>KVKK Aydınlatma ve Açık Rıza</Text>
+                <Text style={styles.kvkkIntro}>
+                  6698 sayılı KVKK kapsamında kişisel verileriniz, üyelik ve uygulama hizmetleri için işlenir.
+                  Aşağıdaki açık rızalar kayıt için zorunludur.
+                </Text>
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setKvkkPhoneShare((v) => !v)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkbox, kvkkPhoneShare && styles.checkboxChecked]}>
+                    {kvkkPhoneShare ? <Text style={styles.checkboxTick}>✓</Text> : null}
+                  </View>
+                  <Text style={styles.checkboxLabel}>
+                    Cep telefonu numaramın rezervasyon, üye doğrulama ve işletmelerle iletişim amacıyla paylaşılmasına açık rıza veriyorum.
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setKvkkLocation((v) => !v)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkbox, kvkkLocation && styles.checkboxChecked]}>
+                    {kvkkLocation ? <Text style={styles.checkboxTick}>✓</Text> : null}
+                  </View>
+                  <Text style={styles.checkboxLabel}>
+                    Konum verimin nöbetçi eczane, hava durumu ve haritada yakındaki yerleri göstermek amacıyla kullanılmasına açık rıza veriyorum.
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowKvkkModal(true)} activeOpacity={0.8}>
+                  <Text style={styles.kvkkLink}>Aydınlatma metnini oku</Text>
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.buttonRow}>
                 <TouchableOpacity
                   style={[styles.backButton, styles.backButtonBox]}
@@ -364,11 +433,11 @@ export default function SignUpScreen({ navigation }) {
                 <TouchableOpacity
                   style={[
                     styles.signUpButton,
-                    (loading || (passwordRepeatTouched && !passwordsMatch)) && styles.signUpButtonDisabled,
+                    (loading || (passwordRepeatTouched && !passwordsMatch) || !kvkkPhoneShare || !kvkkLocation) && styles.signUpButtonDisabled,
                   ]}
                   onPress={handleSignUp}
                   activeOpacity={0.8}
-                  disabled={loading || (passwordRepeatTouched && !passwordsMatch)}
+                  disabled={loading || (passwordRepeatTouched && !passwordsMatch) || !kvkkPhoneShare || !kvkkLocation}
                 >
                   {loading ? (
                     <ActivityIndicator color="#fff" />
@@ -437,6 +506,39 @@ export default function SignUpScreen({ navigation }) {
               )}
             />
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowDistrictModal(false)}>
+              <Text style={styles.modalCloseText}>Kapat</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showKvkkModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowKvkkModal(false)}
+          />
+          <View style={styles.kvkkModalContent}>
+            <Text style={styles.modalTitle}>KVKK Aydınlatma Metni</Text>
+            <ScrollView style={styles.kvkkModalScroll} contentContainerStyle={styles.kvkkModalScrollContent}>
+              <Text style={styles.kvkkModalText}>
+                48 App, 6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca veri sorumlusu sıfatıyla hareket eder.
+              </Text>
+              <Text style={styles.kvkkModalText}>
+                Kayıt sırasında verdiğiniz ad, soyad, kullanıcı adı, telefon, doğum tarihi, özel gün ve adres bilgileriniz üyelik hesabınızın oluşturulması, rezervasyon ve yöresel etkinlik taleplerinin iletilmesi, üye numarası ile indirim kontrolü yapılması amacıyla işlenir.
+              </Text>
+              <Text style={styles.kvkkModalText}>
+                Cep telefonu numaranız, rezervasyon veya talep oluşturduğunuz işletmelerin sizinle iletişim kurabilmesi ve üyeliğinizin doğrulanması için ilgili işletmelerle paylaşılabilir. Bu paylaşım, verdiğiniz açık rızaya dayanır.
+              </Text>
+              <Text style={styles.kvkkModalText}>
+                Konum bilginiz yalnızca siz izin verdiğinizde; nöbetçi eczane, hava durumu ve haritada yakındaki işletmeleri göstermek için kullanılır. Konum zorunlu bir kayıt alanı değildir; ancak bu hizmetler için açık rızanız alınır.
+              </Text>
+              <Text style={styles.kvkkModalText}>
+                Verileriniz, yasal saklama süreleri ve hizmetin devamı için gerekli olduğu sürece muhafaza edilir. KVKK kapsamındaki erişim, düzeltme, silme ve rızayı geri çekme talepleriniz için uygulama içinden veya veri sorumlusu ile iletişime geçebilirsiniz. Rızanızı geri çekmeniz, rıza tarihinden sonraki işlemleri etkiler.
+              </Text>
+            </ScrollView>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowKvkkModal(false)}>
               <Text style={styles.modalCloseText}>Kapat</Text>
             </TouchableOpacity>
           </View>
@@ -622,6 +724,84 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#34C759',
+  },
+  kvkkBox: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+  },
+  kvkkTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 8,
+  },
+  kvkkIntro: {
+    fontSize: 13,
+    color: '#555',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#34C759',
+    marginRight: 10,
+    marginTop: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxChecked: {
+    backgroundColor: '#34C759',
+  },
+  checkboxTick: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: '#333',
+    lineHeight: 18,
+  },
+  kvkkLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#34C759',
+    marginTop: 2,
+  },
+  kvkkModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '80%',
+    paddingBottom: 24,
+  },
+  kvkkModalScroll: {
+    maxHeight: 420,
+  },
+  kvkkModalScrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  kvkkModalText: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 21,
+    marginBottom: 12,
   },
   buttonRow: {
     flexDirection: 'row',

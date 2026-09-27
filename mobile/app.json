@@ -17,8 +17,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.app48.app",
+      "buildNumber": "1",
+      "appleTeamId": "TPQD2KZ99R",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Haritada konumunuzu ve yakındaki işletmeleri göstermek için konum izni kullanılır.",
+        "NSLocationWhenInUseUsageDescription": "Konumunuz, KVKK kapsamında nöbetçi eczane, hava durumu ve haritada yakındaki yerleri göstermek için kullanılır.",
+        "NSPhotoLibraryUsageDescription": "İşletme fotoğrafı, menü ve duyuru görseli eklemek için galeri izni kullanılır.",
+        "NSPhotoLibraryAddUsageDescription": "Seçtiğiniz görselleri uygulamaya eklemek için galeri izni kullanılır.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true,
           "NSAllowsArbitraryLoadsInWebContent": true,
@@ -35,18 +42,40 @@
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#34C759"
       },
       "package": "com.app48.app",
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.FOREGROUND_SERVICE"
       ]
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "İşletme fotoğrafı, menü ve duyuru görseli eklemek için galeri izni kullanılır.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Konumunuz, KVKK kapsamında nöbetçi eczane, hava durumu ve haritada yakındaki yerleri göstermek için kullanılır."
+        }
+      ]
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "bb9e7fd5-df2a-4afb-82d0-20c03a0b9f32"
+      }
+    },
+    "owner": "baristatar"
   }
 }
-
-

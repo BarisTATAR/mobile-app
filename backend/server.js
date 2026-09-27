@@ -34,6 +34,7 @@ const {
   isTodayUsersSpecialDay,
   getSpecialDayDiscountMeta,
   resolveMemberDiscountForBusiness,
+  normalizeTrDate,
 } = require('./utils/specialDayDiscount');
 const {
   resolveLocationFieldsFromBody,
@@ -66,9 +67,11 @@ const { applyMediaFilesToSet, enrichListingMedia, enrichListingMediaList } = req
 const {
   YORESEL_AUTO_REJECT_LABEL,
   yoreselStatusLabelForIsletme,
+  isYoreselPendingTimedOut,
   expireStaleYoreselTalepler,
 } = require('./utils/yoreselTalepExpiry');
 const registerPremiumRoutes = require('./routes/premiumRoutes');
+const { getOnDutyPharmacies } = require('./utils/onDutyPharmacies');
 
 const YORESEL_SERVICE_LABELS = {
   muzisyen: 'Müzisyen',
@@ -169,7 +172,10 @@ function yoreselIsletmeTalepMatchFilter(isletmeId) {
 
 function yoreselIsletmeTalepActiveForCalendar(talep, isletmeId) {
   const eff = yoreselEffectiveStatusForIsletme(talep, isletmeId);
-  return eff === 'pending' || eff === 'approved';
+  if (eff === 'approved') return true;
+  if (eff !== 'pending') return false;
+  if (isYoreselPendingTimedOut(talep)) return false;
+  return true;
 }
 
 function yoreselServiceSlotLinesForIsletme(talep, isletmeId) {
@@ -384,7 +390,10 @@ function getTodayLocalStr() {
 }
 
 const YORESEL_DAILY_RESERVATION_LIMIT = 2;
+const YORESEL_PERIOD_DAYS = 30;
+const YORESEL_PERIOD_RESERVATION_LIMIT = 3;
 const YORESEL_DAILY_LIMIT_MESSAGE = 'Günlük Yöresel Etkinlik rezervasyon limitine ulaştınız.';
+const YORESEL_PERIOD_LIMIT_MESSAGE = '30 gün içindeki Yöresel Etkinlik rezervasyon limitine ulaştınız.';
 
 function getLocalDayRange() {
   const d = new Date();
@@ -393,15 +402,84 @@ function getLocalDayRange() {
   return { start, end };
 }
 
+function yoreselMemberTalepFilter(userId, createdAt) {
+  return {
+    user: userId,
+    manualEntry: { $ne: true },
+    createdAt,
+  };
+}
+
 async function countYoreselUserReservationsToday(userId) {
   if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return 0;
   const { start, end } = getLocalDayRange();
-  return YoreselEtkinlikTalep.countDocuments({
+  return YoreselEtkinlikTalep.countDocuments(yoreselMemberTalepFilter(userId, { $gte: start, $lt: end }));
+}
+
+async function countYoreselUserReservationsLastDays(userId, days) {
+  if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return 0;
+  const { end } = getLocalDayRange();
+  const start = new Date(end);
+  start.setDate(start.getDate() - days);
+  return YoreselEtkinlikTalep.countDocuments(yoreselMemberTalepFilter(userId, { $gte: start, $lt: end }));
+}
+
+const MEMBER_REQUIRED_MESSAGE = 'Rezervasyon için üye girişi yapmalısınız';
+
+const BUSINESS_DAILY_PER_ACTIVITY_LIMIT = 2;
+const BUSINESS_ACTIVITY_LABELS = {
+  restorant: 'Restoran',
+  cafe_bar: 'Cafe / Bar',
+  tekne_turu: 'Tekne turu',
+  plaj_beach: 'Plaj / Beach',
+};
+
+async function countUserReservationsForActivityOnDate(userId, activityField, date, fallbackBusinessId = null) {
+  const match = { user: userId, date, status: { $ne: 'rejected' } };
+  if (activityField) {
+    const businesses = await Business.find({ activityField }).select('_id').lean();
+    const ids = businesses.map((b) => b._id);
+    if (!ids.length) return 0;
+    match.business = { $in: ids };
+  } else if (fallbackBusinessId) {
+    match.business = fallbackBusinessId;
+  } else {
+    return 0;
+  }
+  return Reservation.countDocuments(match);
+}
+
+function businessActivityDailyLimitMessage(activityField) {
+  const label = BUSINESS_ACTIVITY_LABELS[activityField] || 'Bu faaliyet alanı';
+  return `${label} için aynı günde en fazla ${BUSINESS_DAILY_PER_ACTIVITY_LIMIT} rezervasyon yapabilirsiniz.`;
+}
+
+const BUSINESS_ACTIVE_RESERVATION_LIMIT = 5;
+const BUSINESS_ACTIVE_STATUSES = ['pending', 'approved'];
+const BUSINESS_ACTIVE_LIMIT_MESSAGE =
+  'Aynı anda en fazla 5 onay bekleyen veya onaylanmış rezervasyonunuz olabilir.';
+
+async function countUserActiveReservations(userId) {
+  return Reservation.countDocuments({
     user: userId,
-    manualEntry: { $ne: true },
-    status: { $ne: 'cancelled' },
-    createdAt: { $gte: start, $lt: end },
+    status: { $in: BUSINESS_ACTIVE_STATUSES },
   });
+}
+
+async function requireMemberUser(userIdRaw) {
+  const userId = userIdRaw != null ? String(userIdRaw).trim() : '';
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    const err = new Error(MEMBER_REQUIRED_MESSAGE);
+    err.status = 401;
+    throw err;
+  }
+  const user = await User.findById(userId).select('_id').lean();
+  if (!user) {
+    const err = new Error(MEMBER_REQUIRED_MESSAGE);
+    err.status = 401;
+    throw err;
+  }
+  return userId;
 }
 
 /** Cep / iletişim: yalnızca rakamlar */
@@ -715,6 +793,7 @@ app.post('/api/register', async (req, res) => {
       dateOfBirth,
       specialDay,
       address,
+      kvkkConsent,
     } = req.body;
 
     // Validation
@@ -733,6 +812,23 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({
         error: 'Şifre en az 6 karakter olmalıdır',
         message: 'Password must be at least 6 characters',
+      });
+    }
+
+    const dateOfBirthNorm = normalizeTrDate(dateOfBirth);
+    const specialDayNorm = normalizeTrDate(specialDay);
+    if (!dateOfBirthNorm) {
+      return res.status(400).json({ error: 'Doğum tarihi geçersiz. GG/AA/YYYY girin.' });
+    }
+    if (!specialDayNorm) {
+      return res.status(400).json({ error: 'Özel gün tarihi geçersiz. GG/AA/YYYY girin.' });
+    }
+
+    const kvkkPhone = kvkkConsent?.phoneShare === true || kvkkConsent?.phoneShare === 'true';
+    const kvkkLocation = kvkkConsent?.location === true || kvkkConsent?.location === 'true';
+    if (!kvkkPhone || !kvkkLocation) {
+      return res.status(400).json({
+        error: 'Kayıt için KVKK kapsamında telefon paylaşımı ve konum kullanımı açık rızası zorunludur.',
       });
     }
 
@@ -761,12 +857,18 @@ app.post('/api/register', async (req, res) => {
       name: name.trim(),
       surname: surname.trim(),
       phone: phoneDigitsOnly(phone),
-      dateOfBirth: dateOfBirth.trim(),
-      specialDay: specialDay.trim(),
+      dateOfBirth: dateOfBirthNorm,
+      specialDay: specialDayNorm,
       address: {
         city: address.city.trim(),
         district: address.district.trim(),
         neighborhood: address.neighborhood.trim(),
+      },
+      kvkkConsent: {
+        phoneShare: true,
+        location: true,
+        acceptedAt: new Date(),
+        textVersion: '2026-09-23',
       },
     });
 
@@ -1381,51 +1483,17 @@ app.post('/api/business/:businessId/member-discount/check', async (req, res) => 
   }
 });
 
-// Nöbetçi eczane proxy (EczaneAPI). .env'de ECZANE_API_KEY tanımlı olmalı)
+// Nöbetçi eczane: anahtar gerekmez. EczaneAPI key varsa onu dener, yoksa açık kaynağa düşer.
 app.get('/api/pharmacies/on-duty', async (req, res) => {
   try {
-    const { city, district } = req.query;
-    const apiKey = process.env.ECZANE_API_KEY?.trim();
-    if (!apiKey) {
-      return res.status(503).json({
-        error: 'Nöbetçi eczane servisi yapılandırılmamış',
-        hint: "backend/.env dosyasına ECZANE_API_KEY ekleyin (eczaneapi.com'dan ücretsiz alın)",
-        pharmacies: [],
-      });
-    }
-    if (!city || !city.trim()) {
-      return res.status(400).json({ error: 'city (il) parametresi gerekli', pharmacies: [] });
-    }
-    const params = new URLSearchParams({ city: String(city).trim() });
-    if (district && String(district).trim()) params.set('district', String(district).trim());
-    const url = `https://eczaneapi.com/api/v1/pharmacies/on-duty?${params.toString()}`;
-    const apiRes = await fetch(url, {
-      headers: { 'X-API-Key': apiKey, Accept: 'application/json' },
-    });
-    const data = await apiRes.json().catch(() => ({}));
-    if (!apiRes.ok) {
-      return res.status(apiRes.status === 429 ? 429 : 502).json({
-        error: data.error || 'Eczane listesi alınamadı',
-        pharmacies: [],
-      });
-    }
-    const list = (data.data && data.data.pharmacies) ? data.data.pharmacies : [];
-    res.json({
-      city: data.data?.city?.name || city,
-      district: data.data?.district?.name || district || null,
-      date: data.data?.date || null,
-      pharmacies: list.map((p) => ({
-        id: p.id,
-        name: p.name,
-        address: p.address,
-        phone: p.phone,
-        phone2: p.phone2,
-        location: p.location,
-      })),
-    });
+    const result = await getOnDutyPharmacies(req.query.city, req.query.district);
+    res.json(result);
   } catch (e) {
+    if (e.status === 400) {
+      return res.status(400).json({ error: e.message, pharmacies: [] });
+    }
     console.error('Pharmacies on-duty error:', e);
-    res.status(500).json({ error: 'Nöbetçi eczane listesi alınamadı', pharmacies: [] });
+    res.status(502).json({ error: 'Nöbetçi eczane listesi alınamadı', pharmacies: [] });
   }
 });
 
@@ -1602,21 +1670,19 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
     if (!anyService) {
       return res.status(400).json({ error: 'En az bir hizmet alanı seçin' });
     }
-    const userId = body.userId != null ? String(body.userId).trim() : '';
-    const guestName = String(body.guestName || '').trim();
-    const guestPhone = phoneDigitsOnly(body.guestPhone);
-    if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ error: 'Geçersiz kullanıcı' });
+    let userId;
+    try {
+      userId = await requireMemberUser(body.userId);
+    } catch (authErr) {
+      return res.status(authErr.status || 401).json({ error: authErr.message || MEMBER_REQUIRED_MESSAGE });
     }
-    if (!userId) {
-      if (!guestName) return res.status(400).json({ error: 'İsim soyisim gerekli' });
-      if (!guestPhone) return res.status(400).json({ error: 'Cep telefonu gerekli' });
+    const dailyCount = await countYoreselUserReservationsToday(userId);
+    if (dailyCount >= YORESEL_DAILY_RESERVATION_LIMIT) {
+      return res.status(429).json({ error: YORESEL_DAILY_LIMIT_MESSAGE, code: 'DAILY_LIMIT' });
     }
-    if (userId) {
-      const dailyCount = await countYoreselUserReservationsToday(userId);
-      if (dailyCount >= YORESEL_DAILY_RESERVATION_LIMIT) {
-        return res.status(429).json({ error: YORESEL_DAILY_LIMIT_MESSAGE, code: 'DAILY_LIMIT' });
-      }
+    const periodCount = await countYoreselUserReservationsLastDays(userId, YORESEL_PERIOD_DAYS);
+    if (periodCount >= YORESEL_PERIOD_RESERVATION_LIMIT) {
+      return res.status(429).json({ error: YORESEL_PERIOD_LIMIT_MESSAGE, code: 'PERIOD_LIMIT' });
     }
     let targetIsletme = null;
     const serviceTargets = {};
@@ -1695,9 +1761,9 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
       ? serviceTimeSlots[firstEnabledSlot]
       : normalizeYoreselTimeSlot(body.timeSlot);
     const talep = await YoreselEtkinlikTalep.create({
-      user: userId || null,
-      guestName: userId ? '' : guestName,
-      guestPhone: userId ? '' : guestPhone,
+      user: userId,
+      guestName: '',
+      guestPhone: '',
       date,
       timeSlot: legacyTimeSlot,
       serviceTimeSlots,
@@ -1711,11 +1777,13 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
       status: 'pending',
     });
     await talep.populate('user', 'name surname');
-    const dailyCountAfter = userId ? await countYoreselUserReservationsToday(userId) : 0;
+    const dailyCountAfter = await countYoreselUserReservationsToday(userId);
+    const periodCountAfter = await countYoreselUserReservationsLastDays(userId, YORESEL_PERIOD_DAYS);
     res.status(201).json({
       message: 'Talebiniz iletildi',
       talep: talep.toObject(),
-      dailyLimitReached: userId ? dailyCountAfter >= YORESEL_DAILY_RESERVATION_LIMIT : false,
+      dailyLimitReached: dailyCountAfter >= YORESEL_DAILY_RESERVATION_LIMIT,
+      periodLimitReached: periodCountAfter >= YORESEL_PERIOD_RESERVATION_LIMIT,
     });
   } catch (e) {
     console.error('Yoresel etkinlik talep error:', e);
@@ -1765,7 +1833,10 @@ app.get('/api/yoresel-isletme/:isletmeId/talepler/pending', async (req, res) => 
       .populate('user', 'name surname phone')
       .sort({ date: 1, createdAt: -1 })
       .lean();
-    const filtered = list.filter((t) => yoreselEffectiveStatusForIsletme(t, isletmeId) === 'pending');
+    const filtered = list.filter((t) => (
+      yoreselEffectiveStatusForIsletme(t, isletmeId) === 'pending'
+      && !isYoreselPendingTimedOut(t)
+    ));
     res.json({ talepler: filtered.map((t) => yoreselEnrichTalepForIsletme(t, isletmeId)) });
   } catch (e) {
     console.error('Yoresel isletme pending list error:', e);
@@ -2460,13 +2531,19 @@ app.get('/api/business/:businessId/reservations/pending', async (req, res) => {
   }
 });
 
-// Rezervasyon oluştur (kullanıcı veya misafir)
+// Rezervasyon oluştur (yalnızca üye)
 app.post('/api/reservations', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: 'Veritabanı bağlantısı yok' });
     }
-    const { businessId, userId, guestName, guestPhone, date, slot, note, countAge0to6, countAge6to12, countAge12Plus } = req.body;
+    const { businessId, userId, date, slot, note, countAge0to6, countAge6to12, countAge12Plus } = req.body;
+    let memberId;
+    try {
+      memberId = await requireMemberUser(userId);
+    } catch (authErr) {
+      return res.status(authErr.status || 401).json({ error: authErr.message || MEMBER_REQUIRED_MESSAGE });
+    }
     if (!businessId || !date || !slot) {
       return res.status(400).json({ error: 'businessId, date (YYYY-MM-DD) ve slot (HH:mm) zorunludur' });
     }
@@ -2482,11 +2559,31 @@ app.post('/api/reservations', async (req, res) => {
     if (!isSlotAllowedForBusiness(business, normalizedDate, normalizedSlot)) {
       return res.status(400).json({ error: 'Seçilen saat işletmenin açılış-kapanış saatleri dışında veya kapalı bir gün.' });
     }
+    const activeCount = await countUserActiveReservations(memberId);
+    if (activeCount >= BUSINESS_ACTIVE_RESERVATION_LIMIT) {
+      return res.status(429).json({
+        error: BUSINESS_ACTIVE_LIMIT_MESSAGE,
+        code: 'ACTIVE_RESERVATION_LIMIT',
+      });
+    }
+    const activityField = String(business.activityField || '').trim();
+    const sameDayCount = await countUserReservationsForActivityOnDate(
+      memberId,
+      activityField,
+      normalizedDate,
+      business._id
+    );
+    if (sameDayCount >= BUSINESS_DAILY_PER_ACTIVITY_LIMIT) {
+      return res.status(429).json({
+        error: businessActivityDailyLimitMessage(activityField),
+        code: 'ACTIVITY_DAILY_LIMIT',
+      });
+    }
     const reservation = new Reservation({
       business: businessId,
-      user: userId || null,
-      guestName: (guestName || '').trim(),
-      guestPhone: phoneDigitsOnly(guestPhone),
+      user: memberId,
+      guestName: '',
+      guestPhone: '',
       date: normalizedDate,
       slot: normalizedSlot,
       note: (note || '').trim(),

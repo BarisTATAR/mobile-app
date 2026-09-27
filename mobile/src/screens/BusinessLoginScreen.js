@@ -48,7 +48,6 @@ export default function BusinessLoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(true);
-  const [checkingStorage, setCheckingStorage] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,10 +69,8 @@ export default function BusinessLoginScreen({ navigation }) {
         const premiumSession = rawPremium ? JSON.parse(rawPremium) : null;
         if (!cancelled && premiumSession?.ownerId && premiumSession?.ownerType && premiumSession?.loginKey) {
           navigation.replace('PremiumListingMain', premiumSession);
-          return;
         }
       } catch (e) {}
-      if (!cancelled) setCheckingStorage(false);
     })();
     return () => { cancelled = true; };
   }, [navigation]);
@@ -162,16 +159,6 @@ export default function BusinessLoginScreen({ navigation }) {
       setLoading(false);
     }
   };
-
-  if (checkingStorage) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <ActivityIndicator size="large" color="#34C759" />
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>

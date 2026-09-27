@@ -60,7 +60,7 @@ export default function PharmacyOnDutyScreen({ navigation }) {
         setDistrict(data.district != null ? data.district : districtName || '');
       } else {
         setPharmacies([]);
-        const msg = data.error || data.hint || (res.status === 503 ? 'Nöbetçi eczane servisi yapılandırılmamış. Backend .env dosyasına ECZANE_API_KEY ekleyin (eczaneapi.com ücretsiz kayıt).' : 'Nöbetçi eczane listesi alınamadı.');
+        const msg = data.error || data.hint || 'Nöbetçi eczane listesi alınamadı.';
         setError(msg);
       }
     } catch (e) {
@@ -190,13 +190,16 @@ export default function PharmacyOnDutyScreen({ navigation }) {
         ListEmptyComponent={
           !loading && !refreshing ? (
             <Text style={styles.emptyText}>
-              {error ? '' : 'İlçe seçip "Nöbetçi eczaneleri getir"e basın.'}
+              {error ? '' : (city ? 'Bu bölgede bugün nöbetçi eczane bulunamadı.' : 'İlçe seçip "Nöbetçi eczaneleri getir"e basın.')}
             </Text>
           ) : null
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.name}>{item.name}</Text>
+            {item.district ? (
+              <Text style={styles.address}>{item.district}</Text>
+            ) : null}
             {item.address ? (
               <TouchableOpacity onPress={() => openMaps(item)}>
                 <Text style={styles.address}>📍 {item.address}</Text>

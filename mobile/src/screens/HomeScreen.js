@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { warmupAfterFirstPaint } from '../services/appWarmup';
 
 // 1. grup: Duyurular
 const DUYURULAR_GRUP = [
@@ -34,8 +35,22 @@ const GUEST_ALLOWED = new Set(['duyurular', 'hava', 'eczane']);
 export default function HomeScreen({ navigation, route }) {
   const isGuest = route?.params?.guest === true;
 
+  useEffect(() => {
+    warmupAfterFirstPaint();
+  }, []);
+
   const handlePress = (item) => {
-    if (isGuest && !GUEST_ALLOWED.has(item.id)) return;
+    if (isGuest && !GUEST_ALLOWED.has(item.id)) {
+      Alert.alert(
+        'Üye girişi gerekli',
+        'Rezervasyon ve talepler için üye olmalısınız.',
+        [
+          { text: 'Tamam', style: 'cancel' },
+          { text: 'Giriş yap', onPress: () => navigation.replace('Login') },
+        ]
+      );
+      return;
+    }
     if (item.id === 'rezervasyon') {
       navigation.navigate('BusinessList');
       return;
@@ -90,8 +105,7 @@ export default function HomeScreen({ navigation, route }) {
         key={item.id}
         style={[styles.card, disabled && styles.cardDisabled]}
         onPress={() => handlePress(item)}
-        activeOpacity={disabled ? 1 : 0.8}
-        disabled={disabled}
+        activeOpacity={0.8}
       >
         <View style={[styles.logoCircle, disabled && styles.logoCircleDisabled]}>
           <Text style={[styles.emoji, disabled && styles.emojiDisabled]}>{item.emoji}</Text>

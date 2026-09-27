@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
-import { digitsOnly } from '../utils/phoneInput';
 import YoreselAvailabilityCalendar from '../components/YoreselAvailabilityCalendar';
 import ListingCardMedia from '../components/ListingCardMedia';
 import ListingMediaGalleryModal from '../components/ListingMediaGalleryModal';
@@ -91,7 +90,7 @@ function getDateOptions() {
 
 const DATE_OPTIONS = getDateOptions();
 
-export default function EtkinliklerScreen() {
+export default function EtkinliklerScreen({ navigation }) {
   const [appUser, setAppUser] = useState(null);
   const [isletmeler, setIsletmeler] = useState([]);
   const [loadingIsletmeler, setLoadingIsletmeler] = useState(false);
@@ -120,8 +119,6 @@ export default function EtkinliklerScreen() {
     aracKiralama: '',
   });
   const [note, setNote] = useState('');
-  const [guestName, setGuestName] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
   const [sending, setSending] = useState(false);
 
   const [dateModal, setDateModal] = useState(false);
@@ -237,15 +234,16 @@ export default function EtkinliklerScreen() {
       Alert.alert('Uyarı', 'En az bir hizmet alanı seçin.');
       return;
     }
-    if (!appUser) {
-      if (!(guestName || '').trim()) {
-        Alert.alert('Uyarı', 'İsim soyisim girin.');
-        return;
-      }
-      if (!(guestPhone || '').trim()) {
-        Alert.alert('Uyarı', 'Cep telefonu girin.');
-        return;
-      }
+    if (!appUser?.id) {
+      Alert.alert(
+        'Üye girişi gerekli',
+        'Yöresel etkinlik rezervasyonu için üye olmalısınız.',
+        [
+          { text: 'Tamam', style: 'cancel' },
+          { text: 'Giriş yap', onPress: () => navigation.navigate('UserLogin') },
+        ]
+      );
+      return;
     }
     setSending(true);
     try {
@@ -254,12 +252,8 @@ export default function EtkinliklerScreen() {
         eventType,
         services,
         note: note.trim(),
+        userId: appUser.id,
       };
-      if (appUser) body.userId = appUser.id;
-      else {
-        body.guestName = guestName.trim();
-        body.guestPhone = digitsOnly(guestPhone);
-      }
       body.serviceTargets = serviceTargets;
       const slotsOut = {};
       Object.keys(services).forEach((k) => {
@@ -274,8 +268,8 @@ export default function EtkinliklerScreen() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const errMsg = data.error || 'Talep gönderilemedi.';
-        if (res.status === 429 || data.code === 'DAILY_LIMIT') {
-          Alert.alert('Uyarı', 'Günlük Yöresel Etkinlik rezervasyon limitine ulaştınız.');
+        if (res.status === 429 || data.code === 'DAILY_LIMIT' || data.code === 'PERIOD_LIMIT') {
+          Alert.alert('Uyarı', errMsg);
         } else {
           Alert.alert('Hata', errMsg);
         }
@@ -284,7 +278,9 @@ export default function EtkinliklerScreen() {
       const contactNote = 'Rezervasyonlarınızın onaylanması için işletmeler ile iletişime geçmelisiniz.';
       let successMsg = data.message || 'Talebiniz iletildi.';
       successMsg += `\n\n${contactNote}`;
-      if (data.dailyLimitReached) {
+      if (data.periodLimitReached) {
+        successMsg += '\n\n30 gün içindeki Yöresel Etkinlik rezervasyon limitine ulaştınız.';
+      } else if (data.dailyLimitReached) {
         successMsg += '\n\nGünlük Yöresel Etkinlik rezervasyon limitine ulaştınız.';
       }
       Alert.alert('Başarılı', successMsg);
@@ -427,30 +423,17 @@ export default function EtkinliklerScreen() {
         </View>
       ))}
 
-      {!appUser ? (
-        <>
-          <Text style={styles.label}>İsim soyisim</Text>
-          <TextInput
-            style={styles.input}
-            value={guestName}
-            onChangeText={setGuestName}
-            placeholder="Adınız soyadınız"
-            placeholderTextColor="#999"
-          />
-          <Text style={styles.label}>Cep telefonu</Text>
-          <TextInput
-            style={styles.input}
-            value={guestPhone}
-            onChangeText={(t) => setGuestPhone(digitsOnly(t))}
-            placeholder="Sadece rakam"
-            placeholderTextColor="#999"
-            keyboardType="number-pad"
-          />
-        </>
-      ) : (
+      {appUser ? (
         <Text style={styles.loggedHint}>
           Giriş yaptınız: {[appUser.name, appUser.surname].filter(Boolean).join(' ') || appUser.username}
         </Text>
+      ) : (
+        <View style={styles.loginRequiredBox}>
+          <Text style={styles.loginRequiredText}>Rezervasyon göndermek için üye girişi yapmalısınız.</Text>
+          <TouchableOpacity style={styles.submitBtn} onPress={() => navigation.navigate('UserLogin')} activeOpacity={0.8}>
+            <Text style={styles.submitBtnText}>Giriş yap / Üye ol</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       <Text style={styles.label}>Not (isteğe bağlı)</Text>
@@ -463,9 +446,11 @@ export default function EtkinliklerScreen() {
         multiline
       />
 
-      <TouchableOpacity style={[styles.submitBtn, sending && styles.submitBtnDisabled]} onPress={submitTalep} disabled={sending}>
-        {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Talep gönder</Text>}
-      </TouchableOpacity>
+      {appUser ? (
+        <TouchableOpacity style={[styles.submitBtn, sending && styles.submitBtnDisabled]} onPress={submitTalep} disabled={sending}>
+          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Talep gönder</Text>}
+        </TouchableOpacity>
+      ) : null}
 
       <View style={styles.divider} />
 
@@ -807,6 +792,16 @@ const styles = StyleSheet.create({
   },
   noteInput: { minHeight: 72, textAlignVertical: 'top' },
   loggedHint: { marginTop: 12, fontSize: 14, color: '#34C759', fontWeight: '600' },
+  loginRequiredBox: {
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 14,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F0E0A0',
+  },
+  loginRequiredText: { fontSize: 14, color: '#6D4C00', marginBottom: 12, fontWeight: '600' },
   submitBtn: {
     marginTop: 20,
     backgroundColor: '#34C759',

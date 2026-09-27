@@ -29,7 +29,6 @@ export default function PremiumListingLoginScreen({ navigation }) {
   const [loginKey, setLoginKey] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [checkingStorage, setCheckingStorage] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,10 +38,8 @@ export default function PremiumListingLoginScreen({ navigation }) {
         const session = raw ? JSON.parse(raw) : null;
         if (!cancelled && session?.ownerId && session?.ownerType && session?.loginKey) {
           navigation.replace('PremiumListingMain', session);
-          return;
         }
       } catch (e) {}
-      if (!cancelled) setCheckingStorage(false);
     })();
     return () => { cancelled = true; };
   }, [navigation]);
@@ -83,14 +80,6 @@ export default function PremiumListingLoginScreen({ navigation }) {
       setLoading(false);
     }
   };
-
-  if (checkingStorage) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color="#34C759" style={styles.spinner} />
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>

@@ -66,7 +66,7 @@ The server will run on `http://localhost:3000`
 ### 4. Konum ve Nöbetçi Eczane (isteğe bağlı)
 
 - **Konum:** Nöbetçi eczane ve hava durumu konumunuza göre çalışır. Mobilde `cd mobile && npx expo install expo-location` çalıştırın.
-- **Nöbetçi eczane:** Listeyi göstermek için [EczaneAPI](https://eczaneapi.com) ücretsiz anahtarı alın; `backend/.env` içine `ECZANE_API_KEY=eczane_api_xxxxx` ekleyin.
+- **Nöbetçi eczane:** Varsayılan olarak açık kaynaktan listelenir. İsterseniz [EczaneAPI](https://eczaneapi.com) anahtarını `backend/.env` içine `ECZANE_API_KEY=eczane_api_xxxxx` olarak ekleyebilirsiniz.
 
 ### 5. Start the Mobile App
 

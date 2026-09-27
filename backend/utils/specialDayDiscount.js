@@ -1,5 +1,40 @@
 const SPECIAL_DAY_DISCOUNT_PERCENT = 10;
 
+/** GG/AA/YYYY olarak saklanır. Nokta, tire veya ISO da kabul edilir. */
+function normalizeTrDate(dateStr) {
+  const s = String(dateStr || '').trim();
+  if (!s) return null;
+
+  let day;
+  let month;
+  let year;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    year = parseInt(m[1], 10);
+    month = parseInt(m[2], 10);
+    day = parseInt(m[3], 10);
+  } else {
+    m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+    if (!m) return null;
+    day = parseInt(m[1], 10);
+    month = parseInt(m[2], 10);
+    year = parseInt(m[3], 10);
+    if (year < 100) year += year >= 50 ? 1900 : 2000;
+  }
+
+  const dt = new Date(year, month - 1, day);
+  if (
+    year < 1900 ||
+    year > 2100 ||
+    dt.getFullYear() !== year ||
+    dt.getMonth() !== month - 1 ||
+    dt.getDate() !== day
+  ) {
+    return null;
+  }
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+}
+
 /** GG.AA.YYYY, GG/AA/YYYY veya YYYY-MM-DD formatından ay/gün çıkarır */
 function parseMonthDay(dateStr) {
   const s = String(dateStr || '').trim();
@@ -96,6 +131,7 @@ function resolveMemberDiscountForBusiness({ user, storedDiscount, isExpired, tod
 
 module.exports = {
   SPECIAL_DAY_DISCOUNT_PERCENT,
+  normalizeTrDate,
   parseMonthDay,
   isTodayUsersSpecialDay,
   getSpecialDayDiscountMeta,

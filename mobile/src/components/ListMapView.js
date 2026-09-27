@@ -7,12 +7,22 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  InteractionManager,
   Platform,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import * as Location from 'expo-location';
 import MapListingPin from './MapListingPin';
 import { itemsWithMapCoordinates, googleMapsQueryForItem, districtMapRegion } from '../utils/mapCoordinates';
+
+function loadMapLibraries() {
+  const maps = require('react-native-maps');
+  const Location = require('expo-location');
+  return {
+    MapView: maps.default,
+    Marker: maps.Marker,
+    PROVIDER_DEFAULT: maps.PROVIDER_DEFAULT,
+    Location,
+  };
+}
 
 const MUGLA_REGION = {
   latitude: 37.2153,
@@ -66,6 +76,7 @@ export default function ListMapView({
   noCoordsHint = 'Bu kayıtlar için konum bulunamadı. Admin panelinde ilçe/mahalle bilgisi girin.',
 }) {
   const mapRef = useRef(null);
+  const [mapLib, setMapLib] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState('idle');
   const [region, setRegion] = useState(() => defaultMapRegion(defaultDistrict));
@@ -121,6 +132,8 @@ export default function ListMapView({
   }, [legendItems, getPinAppearance, getPinColor, markers]);
 
   const loadUserLocation = useCallback(async () => {
+    const Location = mapLib?.Location;
+    if (!Location) return;
     setLocationStatus('loading');
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -140,11 +153,18 @@ export default function ListMapView({
     } catch {
       setLocationStatus('error');
     }
+  }, [mapLib]);
+
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      setMapLib(loadMapLibraries());
+    });
+    return () => task.cancel();
   }, []);
 
   useEffect(() => {
-    loadUserLocation();
-  }, [loadUserLocation]);
+    if (mapLib) loadUserLocation();
+  }, [mapLib, loadUserLocation]);
 
   useEffect(() => {
     const next = regionForMarkers(markers, defaultDistrict);
@@ -216,6 +236,19 @@ export default function ListMapView({
       </View>
     );
   }
+
+  if (!mapLib) {
+    return (
+      <View style={styles.wrap}>
+        <View style={styles.mapPlaceholder}>
+          <ActivityIndicator color="#34C759" />
+          <Text style={styles.mapPlaceholderText}>Harita hazırlanıyor…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const { MapView, Marker, PROVIDER_DEFAULT } = mapLib;
 
   return (
     <View style={styles.wrap}>
@@ -290,6 +323,14 @@ export default function ListMapView({
 const styles = StyleSheet.create({
   wrap: { flex: 1, minHeight: 240, borderRadius: 12, overflow: 'hidden' },
   map: { flex: 1, width: '100%' },
+  mapPlaceholder: {
+    flex: 1,
+    minHeight: 240,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f9f2',
+  },
+  mapPlaceholderText: { marginTop: 8, fontSize: 13, color: '#555' },
   zoomCol: {
     position: 'absolute',
     right: 12,

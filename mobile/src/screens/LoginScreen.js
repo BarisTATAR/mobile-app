@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,16 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ImageBackground,
-  ActivityIndicator,
+  InteractionManager,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
+import { HOME_IMAGE_CACHE_KEY } from '../services/cacheKeys';
 
 const APP_USER_KEY = 'appUser';
 
 export default function LoginScreen({ navigation }) {
   const [homeImageUrl, setHomeImageUrl] = useState('');
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,22 +36,21 @@ export default function LoginScreen({ navigation }) {
     return () => { cancelled = true; };
   }, [navigation]);
 
-  const loadHomeImage = useCallback(async () => {
-    try {
-      const res = await fetch(apiUrl('/api/app-settings'), { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.homeImageUrl) setHomeImageUrl(String(data.homeImageUrl).trim());
-      else setHomeImageUrl('');
-    } catch (e) {
-      setHomeImageUrl('');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    loadHomeImage();
-  }, [loadHomeImage]);
+    let cancelled = false;
+    const task = InteractionManager.runAfterInteractions(() => {
+      (async () => {
+        try {
+          const cached = await AsyncStorage.getItem(HOME_IMAGE_CACHE_KEY);
+          if (!cancelled && cached) setHomeImageUrl(String(cached).trim());
+        } catch (e) {}
+      })();
+    });
+    return () => {
+      cancelled = true;
+      task.cancel();
+    };
+  }, []);
 
   const handleCustomerLogin = () => {
     // Navigate to business login screen
@@ -103,16 +102,6 @@ export default function LoginScreen({ navigation }) {
         </View>
     </View>
   );
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <ActivityIndicator size="large" color="#34C759" />
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   if (homeImageUrl) {
     return (

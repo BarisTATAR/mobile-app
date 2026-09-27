@@ -6,13 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
+  ScrollView,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
+import { warmupAfterFirstPaint } from '../services/appWarmup';
 
 const APP_USER_KEY = 'appUser';
 
@@ -21,9 +21,9 @@ export default function UserLoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(true);
-  const [checkingStorage, setCheckingStorage] = useState(true);
 
   useEffect(() => {
+    warmupAfterFirstPaint();
     let cancelled = false;
     (async () => {
       try {
@@ -31,10 +31,8 @@ export default function UserLoginScreen({ navigation }) {
         const user = raw ? JSON.parse(raw) : null;
         if (!cancelled && user && user.id && user.rememberMe !== false) {
           navigation.replace('Main');
-          return;
         }
       } catch (e) {}
-      if (!cancelled) setCheckingStorage(false);
     })();
     return () => { cancelled = true; };
   }, [navigation]);
@@ -69,23 +67,16 @@ export default function UserLoginScreen({ navigation }) {
     }
   };
 
-  if (checkingStorage) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <ActivityIndicator size="large" color="#34C759" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <ScrollView
         style={styles.keyboardView}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.title}>Kullanıcı Girişi</Text>
             <Text style={styles.subtitle}>Lütfen bilgilerinizi girin</Text>
@@ -102,6 +93,8 @@ export default function UserLoginScreen({ navigation }) {
                 onChangeText={setUsername}
                 autoCapitalize="none"
                 autoCorrect={false}
+                textContentType="username"
+                autoComplete="username"
               />
             </View>
 
@@ -116,6 +109,8 @@ export default function UserLoginScreen({ navigation }) {
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
+                textContentType="password"
+                autoComplete="password"
               />
             </View>
 
@@ -151,8 +146,7 @@ export default function UserLoginScreen({ navigation }) {
           >
             <Text style={styles.backButtonText}>Geri Dön</Text>
           </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -166,7 +160,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     padding: 20,
     justifyContent: 'center',
   },

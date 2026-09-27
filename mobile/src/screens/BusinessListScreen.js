@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { apiUrl } from '../config/api';
 import { useUserDefaultDistrict } from '../hooks/useUserDefaultDistrict';
-import { digitsOnly } from '../utils/phoneInput';
 import { buildListAddressQueryParams } from '../utils/listAddressQueryParams';
 import {
   getReservationSlotsForDate,
@@ -88,13 +87,11 @@ export default function BusinessListScreen({ navigation }) {
   const [reservationSending, setReservationSending] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [slotPickerOpen, setSlotPickerOpen] = useState(false);
-  const [guestName, setGuestName] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
   const [galleryVisible, setGalleryVisible] = useState(false);
   const [galleryItems, setGalleryItems] = useState([]);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [viewMode, setViewMode] = useState('list');
-  const { appUser } = useUserDefaultDistrict(setDistrict);
+  const { appUser, districtDefaultReady } = useUserDefaultDistrict(setDistrict);
 
   const businessMapLegend = React.useMemo(
     () => BUSINESS_ACTIVITIES.map((a) => ({
@@ -213,6 +210,18 @@ export default function BusinessListScreen({ navigation }) {
   }, [loadList, listFilters]);
 
   const openReservationModal = (item) => {
+    if (!districtDefaultReady) return;
+    if (!appUser?.id) {
+      Alert.alert(
+        'Üye girişi gerekli',
+        'Rezervasyon yapmak için üye olmalısınız.',
+        [
+          { text: 'Tamam', style: 'cancel' },
+          { text: 'Giriş yap', onPress: () => navigation.navigate('UserLogin') },
+        ]
+      );
+      return;
+    }
     const defaultDate = DATE_OPTIONS[0]?.key || '';
     const initialSlots = getReservationSlotsForDate(item, defaultDate);
     setSelectedBusiness(item);
@@ -248,34 +257,21 @@ export default function BusinessListScreen({ navigation }) {
       Alert.alert('Uyarı', 'Seçtiğiniz tarih için işletme kapalı veya uygun saat bulunamadı.');
       return;
     }
-    if (!appUser) {
-      const name = (guestName || '').trim();
-      const phone = (guestPhone || '').trim();
-      if (!name) {
-        Alert.alert('Uyarı', 'İsim soyisim girin.');
-        return;
-      }
-      if (!phone) {
-        Alert.alert('Uyarı', 'Cep telefonu girin.');
-        return;
-      }
+    if (!appUser?.id) {
+      Alert.alert('Üye girişi gerekli', 'Rezervasyon yapmak için üye olmalısınız.');
+      return;
     }
     setReservationSending(true);
     try {
       const body = {
         businessId: selectedBusiness._id,
+        userId: appUser.id,
         date: reservationDate,
         slot: reservationSlot,
         countAge0to6: c0,
         countAge6to12: c1,
         countAge12Plus: c2,
       };
-      if (appUser) {
-        body.userId = appUser.id;
-      } else {
-        body.guestName = (guestName || '').trim();
-        body.guestPhone = (guestPhone || '').trim();
-      }
       const res = await fetch(apiUrl('/api/reservations'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -286,6 +282,8 @@ export default function BusinessListScreen({ navigation }) {
         setReservationModalVisible(false);
         setSelectedBusiness(null);
         Alert.alert('Başarılı', 'Rezervasyon talebiniz işletmeye iletildi. Onay bekleniyor.');
+      } else if (res.status === 429 || data.code === 'ACTIVITY_DAILY_LIMIT' || data.code === 'ACTIVE_RESERVATION_LIMIT') {
+        Alert.alert('Uyarı', data.error || 'Rezervasyon limitine ulaştınız.');
       } else {
         Alert.alert('Hata', data.error || 'Talep gönderilemedi.');
       }
@@ -508,33 +506,11 @@ export default function BusinessListScreen({ navigation }) {
               Rezervasyon talebi — {selectedBusiness?.businessName || ''}
             </Text>
             <ScrollView style={styles.reservationForm} keyboardShouldPersistTaps="handled">
-              {appUser ? (
-                <View style={styles.reservationUserBlock}>
-                  <Text style={styles.reservationLabel}>Rezervasyon yapan</Text>
-                  <Text style={styles.reservationUserText}>{[appUser.name, appUser.surname].filter(Boolean).join(' ')}</Text>
-                  {appUser.phone ? <Text style={styles.reservationUserSub}>📞 {appUser.phone}</Text> : null}
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.reservationLabel}>İsim soyisim</Text>
-                  <TextInput
-                    style={styles.reservationInput}
-                    value={guestName}
-                    onChangeText={setGuestName}
-                    placeholder="Adınız ve soyadınız"
-                    placeholderTextColor="#999"
-                  />
-                  <Text style={styles.reservationLabel}>Cep telefonu</Text>
-                  <TextInput
-                    style={styles.reservationInput}
-                    value={guestPhone}
-                    onChangeText={(t) => setGuestPhone(digitsOnly(t))}
-                    placeholder="Sadece rakam"
-                    placeholderTextColor="#999"
-                    keyboardType="number-pad"
-                  />
-                </>
-              )}
+              <View style={styles.reservationUserBlock}>
+                <Text style={styles.reservationLabel}>Rezervasyon yapan</Text>
+                <Text style={styles.reservationUserText}>{[appUser?.name, appUser?.surname].filter(Boolean).join(' ')}</Text>
+                {appUser?.phone ? <Text style={styles.reservationUserSub}>📞 {appUser.phone}</Text> : null}
+              </View>
               <Text style={styles.reservationLabel}>0-6 yaş kişi sayısı</Text>
               <TextInput
                 style={styles.reservationInput}

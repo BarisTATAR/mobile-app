@@ -86,7 +86,16 @@ function getDevApiBaseUrlCandidates() {
   return out;
 }
 
-const API_BASE_URL = __DEV__ ? resolveDevApiBaseUrl() : 'https://your-production-api.com';
+const LIVE_API_BASE_URL = 'https://mobile-app-wp3h.onrender.com';
+
+function useLiveApi() {
+  // Mağaza paketi ve gerçek telefon: canlı Render backend.
+  // Simülatörde geliştirirken yerel backend kalır.
+  if (!__DEV__) return true;
+  return Constants.isDevice === true;
+}
+
+const API_BASE_URL = useLiveApi() ? LIVE_API_BASE_URL : resolveDevApiBaseUrl();
 
 const getBaseUrl = () => (API_BASE_URL || '').replace(/\/$/, '');
 
@@ -106,7 +115,7 @@ export function apiUrl(path) {
 
 export async function apiFetch(path, init = {}) {
   const p = path.startsWith('/') ? path : `/${path}`;
-  const bases = __DEV__ ? getDevApiBaseUrlCandidates() : [getBaseUrl()];
+  const bases = useLiveApi() ? [getBaseUrl()] : getDevApiBaseUrlCandidates();
   let lastError = null;
   for (const base of bases) {
     try {

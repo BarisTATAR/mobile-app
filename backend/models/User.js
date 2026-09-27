@@ -51,6 +51,12 @@ const userSchema = new mongoose.Schema({
     district: { type: String, required: true, trim: true },
     neighborhood: { type: String, required: true, trim: true },
   },
+  kvkkConsent: {
+    phoneShare: { type: Boolean, default: false },
+    location: { type: Boolean, default: false },
+    acceptedAt: { type: Date, default: null },
+    textVersion: { type: String, trim: true, default: '' },
+  },
 }, {
   timestamps: true,
 });

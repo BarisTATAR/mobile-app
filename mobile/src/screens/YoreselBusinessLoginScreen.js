@@ -20,7 +20,6 @@ export default function YoreselBusinessLoginScreen({ navigation }) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [checkingStorage, setCheckingStorage] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,10 +47,8 @@ export default function YoreselBusinessLoginScreen({ navigation }) {
             loginName: '',
             multiVenueLogin: false,
           });
-          return;
         }
       } catch (e) {}
-      if (!cancelled) setCheckingStorage(false);
     })();
     return () => {
       cancelled = true;
@@ -101,16 +98,6 @@ export default function YoreselBusinessLoginScreen({ navigation }) {
       setLoading(false);
     }
   };
-
-  if (checkingStorage) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <ActivityIndicator size="large" color="#34C759" />
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
