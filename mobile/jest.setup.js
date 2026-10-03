@@ -24,12 +24,15 @@ jest.mock('./src/services/locationService', () => ({
   reverseGeocode: jest.fn(async () => null),
 }));
 
-jest.mock('./src/services/turkeyAddressService', () => ({
-  DEFAULT_CITY: 'Muğla',
-  getProvinces: jest.fn(async () => []),
-  getDistrictsForProvince: jest.fn(() => []),
-  getNeighborhoods: jest.fn(async () => []),
-}));
+jest.mock('./src/services/turkeyAddressService', () => {
+  const actual = jest.requireActual('./src/services/turkeyAddressService');
+  return {
+    ...actual,
+    getProvinces: jest.fn(async () => []),
+    getDistrictsForProvince: jest.fn(() => []),
+    getNeighborhoods: jest.fn(async () => []),
+  };
+});
 
 jest.mock('react-native/Libraries/Interaction/InteractionManager', () => ({
   runAfterInteractions: (cb) => {

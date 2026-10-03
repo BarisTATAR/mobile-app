@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   SafeAreaView,
-  ScrollView,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -69,14 +68,7 @@ export default function UserLoginScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.keyboardView}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.title}>Kullanıcı Girişi</Text>
             <Text style={styles.subtitle}>Lütfen bilgilerinizi girin</Text>
@@ -93,8 +85,9 @@ export default function UserLoginScreen({ navigation }) {
                 onChangeText={setUsername}
                 autoCapitalize="none"
                 autoCorrect={false}
-                textContentType="username"
-                autoComplete="username"
+                spellCheck={false}
+                textContentType="none"
+                autoComplete="off"
               />
             </View>
 
@@ -109,8 +102,9 @@ export default function UserLoginScreen({ navigation }) {
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
-                textContentType="password"
-                autoComplete="password"
+                spellCheck={false}
+                textContentType="none"
+                autoComplete="off"
               />
             </View>
 
@@ -147,7 +141,7 @@ export default function UserLoginScreen({ navigation }) {
           >
             <Text style={styles.backButtonText}>Geri Dön</Text>
           </TouchableOpacity>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -157,13 +151,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  keyboardView: {
-    flex: 1,
-  },
   content: {
-    flexGrow: 1,
-    padding: 20,
-    justifyContent: 'center',
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 48,
   },
   header: {
     alignItems: 'center',

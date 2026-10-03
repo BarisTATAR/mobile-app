@@ -20,7 +20,8 @@ import {
   DEFAULT_CITY,
 } from '../services/turkeyAddressService';
 import { digitsOnly } from '../utils/phoneInput';
-import { formatDateWithSlashes, parseTrDateParts } from '../utils/dateInput';
+import { parseTrDateParts } from '../utils/dateInput';
+import DateSlashInput from '../components/DateSlashInput';
 import { warmupAfterFirstPaint } from '../services/appWarmup';
 
 const KVKK_TEXT_VERSION = '2026-09-23';
@@ -318,28 +319,19 @@ export default function SignUpScreen({ navigation }) {
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Doğum Tarihi</Text>
-                <TextInput
+                <DateSlashInput
                   testID="signup-birth-date"
-                  style={styles.input}
-                  placeholder="GG/AA/YYYY"
-                  placeholderTextColor="#999"
                   value={dateOfBirth}
-                  onChangeText={(t) => setDateOfBirth(formatDateWithSlashes(t))}
-                  keyboardType="number-pad"
-                  maxLength={10}
+                  onChange={setDateOfBirth}
                 />
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Yıldönümü / Özel Gün</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="GG/AA/YYYY"
-                  placeholderTextColor="#999"
+                <DateSlashInput
+                  testID="signup-special-day"
                   value={specialDay}
-                  onChangeText={(t) => setSpecialDay(formatDateWithSlashes(t))}
-                  keyboardType="number-pad"
-                  maxLength={10}
+                  onChange={setSpecialDay}
                 />
               </View>
 

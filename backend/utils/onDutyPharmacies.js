@@ -1,7 +1,25 @@
 const TEKNIKZEKA_URL = 'https://api.teknikzeka.net/eczane/api.php';
 const ECZANEAPI_URL = 'https://eczaneapi.com/api/v1/pharmacies/on-duty';
+const ECZANEADRESI_URL = 'https://eczaneadresi.com/api/public/v1/duty-pharmacies';
 const CACHE_MS = 5 * 60 * 1000;
 const cityCache = new Map();
+
+const MUGLA_DISTRICT_FOLDS = new Set([
+  'bodrum',
+  'dalaman',
+  'datca',
+  'fethiye',
+  'kavaklidere',
+  'koycegiz',
+  'marmaris',
+  'mentese',
+  'merkez',
+  'milas',
+  'ortaca',
+  'seydikemer',
+  'ula',
+  'yatagan',
+]);
 
 function foldTr(value) {
   return String(value || '')
@@ -13,7 +31,9 @@ function foldTr(value) {
     .replace(/ü/g, 'u')
     .replace(/ş/g, 's')
     .replace(/ö/g, 'o')
-    .replace(/ç/g, 'c');
+    .replace(/ç/g, 'c')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function asciiUpper(value) {
@@ -70,10 +90,41 @@ function normalizePharmacy(p, index) {
   };
 }
 
+function districtAliases(district) {
+  const wanted = foldTr(district);
+  const aliases = new Set([wanted]);
+  if (wanted === 'mentese' || wanted === 'merkez' || wanted === 'mugla merkez') {
+    aliases.add('mentese');
+    aliases.add('merkez');
+    aliases.add('mugla merkez');
+  }
+  return aliases;
+}
+
 function filterByDistrict(list, district) {
   const wanted = foldTr(district);
   if (!wanted) return list;
-  return list.filter((p) => foldTr(p.district) === wanted);
+  const aliases = districtAliases(district);
+  const exact = list.filter((p) => aliases.has(foldTr(p.district)));
+  if (exact.length) return exact;
+  return list.filter((p) => {
+    const have = foldTr(p.district);
+    return have && (wanted.includes(have) || have.includes(wanted));
+  });
+}
+
+function resolveCityAndDistrict(city, district) {
+  const rawCity = String(city || '').trim();
+  const rawDistrict = String(district || '').trim();
+  const cityFold = foldTr(rawCity).replace(/\b(ili|il|province)\b/g, '').trim();
+
+  if (cityFold === 'mugla' || cityFold === '48') {
+    return { city: 'Muğla', district: rawDistrict };
+  }
+  if (MUGLA_DISTRICT_FOLDS.has(cityFold)) {
+    return { city: 'Muğla', district: rawDistrict || rawCity };
+  }
+  return { city: rawCity, district: rawDistrict };
 }
 
 async function fetchJson(url, headers = {}, timeoutMs = 15000) {
@@ -136,10 +187,22 @@ async function fetchTeknikZeka(city) {
   return [];
 }
 
+function pharmaciesFromEczaneAdresi(payload) {
+  const rows = Array.isArray(payload?.pharmacies) ? payload.pharmacies : [];
+  return rows.map(normalizePharmacy).filter(Boolean);
+}
+
+async function fetchEczaneAdresi(city) {
+  const params = new URLSearchParams({ city: foldTr(city) || 'mugla' });
+  const { ok, data } = await fetchJson(`${ECZANEADRESI_URL}?${params.toString()}`);
+  if (!ok) return [];
+  return pharmaciesFromEczaneAdresi(data);
+}
+
 async function loadCityPharmacies(city) {
   const key = asciiUpper(city) || String(city).trim().toUpperCase();
   const cached = cityCache.get(key);
-  if (cached && Date.now() - cached.at < CACHE_MS) return cached.list;
+  if (cached && cached.list.length && Date.now() - cached.at < CACHE_MS) return cached.list;
 
   const apiKey = process.env.ECZANE_API_KEY?.trim();
   let list = [];
@@ -151,24 +214,36 @@ async function loadCityPharmacies(city) {
     }
   }
   if (!list.length) {
-    list = await fetchTeknikZeka(city);
+    try {
+      list = await fetchTeknikZeka(city);
+    } catch (e) {
+      console.warn('TeknikZeka fetch failed, falling back:', e.message);
+    }
   }
-  cityCache.set(key, { at: Date.now(), list });
+  if (!list.length) {
+    try {
+      list = await fetchEczaneAdresi(city);
+    } catch (e) {
+      console.warn('EczaneAdresi fetch failed:', e.message);
+    }
+  }
+  if (list.length) cityCache.set(key, { at: Date.now(), list });
   return list;
 }
 
 async function getOnDutyPharmacies(city, district) {
-  const cityName = String(city || '').trim();
+  const resolved = resolveCityAndDistrict(city, district);
+  const cityName = String(resolved.city || '').trim();
   if (!cityName) {
     const err = new Error('city (il) parametresi gerekli');
     err.status = 400;
     throw err;
   }
   const all = await loadCityPharmacies(cityName);
-  const pharmacies = filterByDistrict(all, district);
+  const pharmacies = filterByDistrict(all, resolved.district);
   return {
     city: cityName,
-    district: String(district || '').trim() || null,
+    district: String(resolved.district || '').trim() || null,
     date: todayInIstanbul(),
     pharmacies,
   };
@@ -178,4 +253,5 @@ module.exports = {
   getOnDutyPharmacies,
   foldTr,
   filterByDistrict,
+  resolveCityAndDistrict,
 };

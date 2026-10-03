@@ -14,103 +14,169 @@ import {
 } from 'react-native';
 import { apiUrl } from '../config/api';
 import { getLocationWithCityDistrict } from '../services/locationService';
-import { getProvinces, getDistrictsForProvince, DEFAULT_CITY } from '../services/turkeyAddressService';
+import { getProvinces, getDistrictsForProvince, DEFAULT_CITY, matchMuglaDistrict, filterPharmaciesByDistrict, resolveLocationPlace } from '../services/turkeyAddressService';
 import { useUserDefaultDistrict } from '../hooks/useUserDefaultDistrict';
+
+async function fetchOnDutyWithRetry(url, attempts = 3) {
+  let lastError = null;
+  for (let i = 0; i < attempts; i += 1) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 25000);
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: ctrl.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(data.pharmacies)) return { res, data };
+      if (res.status >= 500 && i < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2000 * (i + 1)));
+        continue;
+      }
+      return { res, data };
+    } catch (e) {
+      lastError = e;
+      if (i < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2000 * (i + 1)));
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastError || new Error('Nöbetçi eczane listesi alınamadı');
+}
 
 export default function PharmacyOnDutyScreen({ navigation }) {
   const [locationStatus, setLocationStatus] = useState('idle'); // idle | loading | ok | error
   const [city, setCity] = useState(DEFAULT_CITY);
   const [district, setDistrict] = useState('');
+  const [allPharmacies, setAllPharmacies] = useState([]);
   const [pharmacies, setPharmacies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [districtsList, setDistrictsList] = useState([]);
+  const [provinces, setProvinces] = useState([]);
   const [districtModal, setDistrictModal] = useState(false);
   const { appUser, districtDefaultReady } = useUserDefaultDistrict(setDistrict);
+
+  const applyCityDistricts = useCallback((cityName, provinceList) => {
+    const list = provinceList || provinces;
+    setDistrictsList(getDistrictsForProvince(list, cityName || DEFAULT_CITY));
+  }, [provinces]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const list = await getProvinces();
       if (cancelled) return;
-      const districts = getDistrictsForProvince(list, DEFAULT_CITY);
-      setDistrictsList(districts);
+      setProvinces(list);
+      setDistrictsList(getDistrictsForProvince(list, city));
     })();
     return () => { cancelled = true; };
   }, []);
 
+  const showDistrict = useCallback((list, districtName) => {
+    const ilce = matchMuglaDistrict(districtName) || String(districtName || '').trim();
+    setPharmacies(filterPharmaciesByDistrict(list, ilce));
+  }, []);
+
   const fetchPharmacies = useCallback(async (cityName, districtName) => {
-    if (!cityName) {
-      setError('İl seçin.');
-      setPharmacies([]);
-      return;
-    }
+    const il = String(cityName || DEFAULT_CITY).trim() || DEFAULT_CITY;
+    const ilce = matchMuglaDistrict(districtName) || String(districtName || '').trim();
+    setCity(il);
     setError(null);
     setLoading(true);
     try {
-      const params = new URLSearchParams({ city: String(cityName).trim() });
-      if (districtName && String(districtName).trim()) params.set('district', String(districtName).trim());
-      const url = apiUrl('/api/pharmacies/on-duty?' + params.toString());
-      const res = await fetch(url, { method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' } });
-      const data = await res.json().catch(() => ({}));
+      const url = apiUrl(`/api/pharmacies/on-duty?city=${encodeURIComponent(il)}`);
+      const { res, data } = await fetchOnDutyWithRetry(url);
       if (res.ok && Array.isArray(data.pharmacies)) {
-        setPharmacies(data.pharmacies);
-        setCity(data.city || cityName);
-        setDistrict(data.district != null ? data.district : districtName || '');
-      } else {
-        setPharmacies([]);
-        const msg = data.error || data.hint || 'Nöbetçi eczane listesi alınamadı.';
-        setError(msg);
+        setAllPharmacies(data.pharmacies);
+        setCity(data.city || il);
+        showDistrict(data.pharmacies, ilce);
+        return data.pharmacies;
       }
-    } catch (e) {
+      setAllPharmacies([]);
       setPharmacies([]);
-      setError('Sunucuya bağlanılamadı. Backend çalışıyor mu? (Fiziksel cihazda test ediyorsanız: mobile/src/config/api.js içinde PHYSICAL_DEVICE_IP\'e bilgisayar IP\'nizi yazın.)');
+      setError(data.error || data.hint || 'Nöbetçi eczane listesi alınamadı. Biraz sonra tekrar deneyin.');
+      return [];
+    } catch (e) {
+      setAllPharmacies([]);
+      setPharmacies([]);
+      setError('Sunucuya bağlanılamadı. İnterneti kontrol edip tekrar deneyin.');
+      return [];
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showDistrict]);
+
+  const selectDistrict = useCallback((nextDistrict) => {
+    const ilce = matchMuglaDistrict(nextDistrict) || String(nextDistrict || '').trim();
+    setDistrict(ilce);
+    setDistrictModal(false);
+    setError(null);
+    if (allPharmacies.length) {
+      showDistrict(allPharmacies, ilce);
+      return;
+    }
+    fetchPharmacies(city, ilce);
+  }, [allPharmacies, city, fetchPharmacies, showDistrict]);
 
   const loadByLocation = useCallback(async () => {
     setLocationStatus('loading');
     setError(null);
     const loc = await getLocationWithCityDistrict();
-    if (!loc) {
+    if (!loc?.coords) {
       setLocationStatus('error');
-      setCity(DEFAULT_CITY);
-      setDistrict('');
-      setError('Konum alınamadı. Aşağıdan ilçe seçerek listele.');
-      setPharmacies([]);
+      setError(
+        loc?.permissionDenied
+          ? 'Konum izni kapalı. Ayarlar → 48 App → Konum’u açın.'
+          : 'Konum alınamadı. Aşağıdan ilçe seçerek listele.'
+      );
       return;
     }
+
+    const place = resolveLocationPlace({
+      coords: loc.coords,
+      fields: [loc.district, loc.city, loc.neighbourhood, ...(loc.candidates || [])],
+      pharmacies: allPharmacies,
+      provinces,
+    });
+    if (!place.city) {
+      setLocationStatus('error');
+      setError('Konumdan il bulunamadı. Aşağıdan ilçe seçin.');
+      return;
+    }
+
     setLocationStatus('ok');
-    const cityName = loc.city || DEFAULT_CITY;
-    const districtName = loc.district || '';
-    setCity(cityName);
-    setDistrict(districtName);
-    await fetchPharmacies(cityName, districtName);
-  }, [fetchPharmacies]);
+    setCity(place.city);
+    setDistrict(place.district || '');
+    applyCityDistricts(place.city, provinces);
+    setError(null);
+    await fetchPharmacies(place.city, place.district || '');
+  }, [allPharmacies, applyCityDistricts, fetchPharmacies, provinces]);
 
   const loadByDistrict = useCallback(() => {
+    if (allPharmacies.length) {
+      setError(null);
+      showDistrict(allPharmacies, district);
+      return;
+    }
     fetchPharmacies(city, district);
-  }, [city, district, fetchPharmacies]);
+  }, [allPharmacies, city, district, fetchPharmacies, showDistrict]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    if (city) await fetchPharmacies(city, district);
-    else await loadByLocation();
+    await fetchPharmacies(city, district);
     setRefreshing(false);
-  }, [city, district, fetchPharmacies, loadByLocation]);
+  }, [city, district, fetchPharmacies]);
 
   useEffect(() => {
     if (!districtDefaultReady) return;
-    const userDistrict = String(appUser?.address?.district || '').trim();
-    if (userDistrict) {
-      setCity(DEFAULT_CITY);
-      fetchPharmacies(DEFAULT_CITY, userDistrict);
-      return;
-    }
-    loadByLocation();
+    const userDistrict = matchMuglaDistrict(appUser?.address?.district);
+    if (userDistrict) setDistrict(userDistrict);
+    fetchPharmacies(DEFAULT_CITY, userDistrict);
   }, [districtDefaultReady]);
 
   const openMaps = (item) => {
@@ -140,15 +206,8 @@ export default function PharmacyOnDutyScreen({ navigation }) {
         </Text>
       </View>
 
-      {locationStatus === 'loading' && (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#34C759" />
-          <Text style={styles.loadingText}>Konum alınıyor...</Text>
-        </View>
-      )}
-
       <View style={styles.filterSection}>
-        <Text style={styles.filterLabel}>İlçe (Muğla)</Text>
+        <Text style={styles.filterLabel}>İlçe ({city || DEFAULT_CITY})</Text>
         <TouchableOpacity style={styles.selectTouch} onPress={() => setDistrictModal(true)}>
           <Text style={[styles.selectText, !district && styles.selectPlaceholder]}>
             {district || 'Tüm ilçeler'}
@@ -166,13 +225,16 @@ export default function PharmacyOnDutyScreen({ navigation }) {
             <Text style={styles.listBtnText}>Nöbetçi eczaneleri getir</Text>
           )}
         </TouchableOpacity>
-      </View>
-
-      {locationStatus === 'error' && (
-        <TouchableOpacity style={styles.retryLocationBtn} onPress={loadByLocation}>
-          <Text style={styles.retryLocationText}>Konumu tekrar dene</Text>
+        <TouchableOpacity
+          style={styles.retryLocationBtn}
+          onPress={loadByLocation}
+          disabled={locationStatus === 'loading' || loading}
+        >
+          <Text style={styles.retryLocationText}>
+            {locationStatus === 'loading' ? 'Konum alınıyor...' : 'Konumuma göre ilçe'}
+          </Text>
         </TouchableOpacity>
-      )}
+      </View>
 
       {error ? (
         <View style={styles.errorBox}>
@@ -223,7 +285,7 @@ export default function PharmacyOnDutyScreen({ navigation }) {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDistrictModal(false)}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>İlçe seçin</Text>
-            <TouchableOpacity style={styles.modalItem} onPress={() => { setDistrict(''); setDistrictModal(false); }}>
+            <TouchableOpacity style={styles.modalItem} onPress={() => selectDistrict('')}>
               <Text style={styles.modalItemText}>Tüm ilçeler</Text>
             </TouchableOpacity>
             <ScrollView style={styles.modalScroll}>
@@ -231,7 +293,7 @@ export default function PharmacyOnDutyScreen({ navigation }) {
                 <TouchableOpacity
                   key={d.id}
                   style={styles.modalItem}
-                  onPress={() => { setDistrict(d.name); setDistrictModal(false); }}
+                  onPress={() => selectDistrict(d.name)}
                 >
                   <Text style={styles.modalItemText}>{d.name}</Text>
                 </TouchableOpacity>

@@ -14,6 +14,18 @@ jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
 jest.mock('../services/turkeyAddressService', () => ({
   DEFAULT_CITY: 'Muğla',
+  MUGLA_DISTRICT_NAMES: ['Fethiye', 'Menteşe', 'Bodrum'],
+  matchMuglaDistrict: jest.fn((raw) => (raw ? String(raw) : '')),
+  matchMuglaDistrictFromFields: jest.fn(() => ''),
+  nearestPharmacyDistrict: jest.fn(() => ''),
+  nearestDistrictByCoords: jest.fn(() => ''),
+  resolveMuglaDistrict: jest.fn(() => ''),
+  resolveLocationPlace: jest.fn(() => ({ city: '', district: '' })),
+  isLikelyMuglaCoords: jest.fn(() => false),
+  filterPharmaciesByDistrict: jest.fn((list, districtName) => {
+    if (!districtName) return list || [];
+    return (list || []).filter((p) => p.district === districtName);
+  }),
   getProvinces: jest.fn(async () => []),
   getDistrictsForProvince: jest.fn(() => []),
   getNeighborhoods: jest.fn(async () => []),
@@ -100,7 +112,9 @@ describe('SignUpScreen', () => {
     const { getByText, getAllByText, getAllByPlaceholderText, getByTestId } = render(
       <SignUpScreen navigation={nav()} />
     );
-    expect(getAllByPlaceholderText('GG/AA/YYYY').length).toBeGreaterThanOrEqual(1);
+    expect(getAllByPlaceholderText('GG').length).toBeGreaterThanOrEqual(1);
+    expect(getAllByPlaceholderText('AA').length).toBeGreaterThanOrEqual(1);
+    expect(getAllByPlaceholderText('YYYY').length).toBeGreaterThanOrEqual(1);
     expect(getByText('KVKK Aydınlatma ve Açık Rıza')).toBeTruthy();
     expect(getAllByText('Kayıt Ol').length).toBeGreaterThanOrEqual(1);
     expect(getByTestId('signup-submit').props.accessibilityState.disabled).toBe(true);
@@ -109,8 +123,12 @@ describe('SignUpScreen', () => {
 
   test('inserts slashes while typing birth date', () => {
     const { getByTestId } = render(<SignUpScreen navigation={nav()} />);
-    fireEvent.changeText(getByTestId('signup-birth-date'), '23091990');
-    expect(getByTestId('signup-birth-date').props.value).toBe('23/09/1990');
+    fireEvent.changeText(getByTestId('signup-birth-date-day'), '23');
+    fireEvent.changeText(getByTestId('signup-birth-date-month'), '09');
+    fireEvent.changeText(getByTestId('signup-birth-date-year'), '1990');
+    expect(getByTestId('signup-birth-date-day').props.value).toBe('23');
+    expect(getByTestId('signup-birth-date-month').props.value).toBe('09');
+    expect(getByTestId('signup-birth-date-year').props.value).toBe('1990');
   });
 
   test('password mismatch disables submit', () => {
@@ -138,9 +156,8 @@ describe('ProfileScreen', () => {
 
 describe('PharmacyOnDutyScreen', () => {
   test('shows fetch button and title', async () => {
-    const { getByText } = render(<PharmacyOnDutyScreen navigation={nav()} />);
+    const { getByText, findByText } = render(<PharmacyOnDutyScreen navigation={nav()} />);
     expect(getByText('Nöbetçi Eczaneler')).toBeTruthy();
-    expect(getByText('Nöbetçi eczaneleri getir')).toBeTruthy();
-    await waitFor(() => expect(getByText('Nöbetçi Eczaneler')).toBeTruthy());
+    expect(await findByText('Nöbetçi eczaneleri getir')).toBeTruthy();
   });
 });
