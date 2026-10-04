@@ -15,6 +15,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
 import { PREMIUM_LISTING_SESSION_KEY } from './PremiumListingLoginScreen';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const APP_BUSINESS_KEY = 'businessSession';
 
@@ -43,6 +45,7 @@ const LOGIN_LABELS = {
 };
 
 export default function BusinessLoginScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [operatorType, setOperatorType] = useState('isletme');
   const [loginKey, setLoginKey] = useState('');
   const [password, setPassword] = useState('');
@@ -77,7 +80,7 @@ export default function BusinessLoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!loginKey.trim() || !password) {
-      Alert.alert('Uyarı', 'Giriş bilgisi ve şifre girin.');
+      Alert.alert(tx('Uyarı'), 'Giriş bilgisi ve şifre girin.');
       return;
     }
     setLoading(true);
@@ -120,7 +123,7 @@ export default function BusinessLoginScreen({ navigation }) {
           );
           return;
         }
-        Alert.alert('Giriş başarısız', data.error || 'Geçersiz işletme adı veya şifre.');
+        Alert.alert(tx('Giriş başarısız'), data.error || 'Geçersiz işletme adı veya şifre.');
         return;
       }
 
@@ -154,7 +157,7 @@ export default function BusinessLoginScreen({ navigation }) {
       }
       navigation.replace('PremiumListingMain', session);
     } catch (e) {
-      Alert.alert('Hata', 'Sunucuya bağlanılamadı. Backend çalışıyor mu? (cd backend && npm start)');
+      Alert.alert(tx('Hata'), 'Sunucuya bağlanılamadı. Backend çalışıyor mu? (cd backend && npm start)');
     } finally {
       setLoading(false);
     }
@@ -168,11 +171,11 @@ export default function BusinessLoginScreen({ navigation }) {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Text style={styles.title}>İşletme Girişi</Text>
-            <Text style={styles.subtitle}>İşletme türünü seçin ve bilgilerinizi girin</Text>
+            <Text style={styles.title}>{tx('İşletme Girişi')}</Text>
+            <Text style={styles.subtitle}>{tx('İşletme türünü seçin ve bilgilerinizi girin')}</Text>
           </View>
 
-          <Text style={styles.label}>İşletme türü</Text>
+          <Text style={styles.label}>{tx('İşletme türü')}</Text>
           <View style={styles.typeRow}>
             {OPERATOR_TYPES.map((t) => (
               <TouchableOpacity
@@ -181,20 +184,20 @@ export default function BusinessLoginScreen({ navigation }) {
                 onPress={() => setOperatorType(t.id)}
               >
                 <Text style={[styles.typeChipText, operatorType === t.id && styles.typeChipTextActive]}>
-                  {t.label}
+                  {tx(t.label)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={styles.hint}>{LOGIN_HINTS[operatorType]}</Text>
+          <Text style={styles.hint}>{tx(LOGIN_HINTS[operatorType])}</Text>
 
           <View style={styles.formContainer}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>{LOGIN_LABELS[operatorType]}</Text>
+              <Text style={styles.label}>{tx(LOGIN_LABELS[operatorType])}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={LOGIN_LABELS[operatorType]}
+                placeholder={tx(LOGIN_LABELS[operatorType])}
                 placeholderTextColor="#999"
                 value={loginKey}
                 onChangeText={setLoginKey}
@@ -204,10 +207,10 @@ export default function BusinessLoginScreen({ navigation }) {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Şifre</Text>
+              <Text style={styles.label}>{tx('Şifre')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Şifrenizi girin"
+                placeholder={tx('Şifrenizi girin')}
                 placeholderTextColor="#999"
                 value={password}
                 onChangeText={setPassword}
@@ -225,7 +228,7 @@ export default function BusinessLoginScreen({ navigation }) {
               <View style={[styles.checkbox, keepSignedIn && styles.checkboxChecked]}>
                 {keepSignedIn ? <Text style={styles.checkboxTick}>✓</Text> : null}
               </View>
-              <Text style={styles.checkboxLabel}>Oturum açık kalsın</Text>
+              <Text style={styles.checkboxLabel}>{tx('Oturum açık kalsın')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -235,9 +238,9 @@ export default function BusinessLoginScreen({ navigation }) {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#34C759" />
+                <ActivityIndicator color="#1B4D4A" />
               ) : (
-                <Text style={styles.loginButtonText}>Giriş Yap</Text>
+                <Text style={styles.loginButtonText}>{tx('Giriş Yap')}</Text>
               )}
             </TouchableOpacity>
 
@@ -247,21 +250,21 @@ export default function BusinessLoginScreen({ navigation }) {
                 onPress={() => navigation.navigate('YoreselBusinessLogin')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.extraButtonText}>Yöresel İşletme Girişi</Text>
+                <Text style={styles.extraButtonText}>{tx('Yöresel İşletme Girişi')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.extraButton}
                 onPress={() => navigation.navigate('BusinessSignUp')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.extraButtonText}>İşletme Üye Ol</Text>
+                <Text style={styles.extraButtonText}>{tx('İşletme Üye Ol')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.extraButton}
                 onPress={() => navigation.navigate('AdminLogin')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.extraButtonText}>Admin Girişi</Text>
+                <Text style={styles.extraButtonText}>{tx('Admin Girişi')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -271,7 +274,7 @@ export default function BusinessLoginScreen({ navigation }) {
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
           >
-            <Text style={styles.backButtonText}>Geri Dön</Text>
+            <Text style={styles.backButtonText}>{tx('Geri Dön')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -282,7 +285,7 @@ export default function BusinessLoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F1EB',
   },
   keyboardView: {
     flex: 1,
@@ -299,7 +302,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#34C759',
+    color: '#1B4D4A',
     marginBottom: 10,
   },
   subtitle: {
@@ -326,7 +329,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e8e8e8',
   },
   typeChipActive: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
   },
   typeChipText: {
     fontSize: 13,
@@ -362,7 +365,7 @@ const styles = StyleSheet.create({
   loginButton: {
     backgroundColor: '#fff',
     borderWidth: 2,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
@@ -377,7 +380,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   loginButtonText: {
-    color: '#34C759',
+    color: '#1B4D4A',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -392,12 +395,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 18,
     borderWidth: 1.5,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
     borderRadius: 10,
     backgroundColor: '#fff',
   },
   extraButtonText: {
-    color: '#34C759',
+    color: '#1B4D4A',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -407,7 +410,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#34C759',
+    color: '#1B4D4A',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -423,13 +426,13 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
   },
   checkboxTick: {
     color: '#fff',

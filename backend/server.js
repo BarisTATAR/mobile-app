@@ -20,8 +20,26 @@ const Lastikci = require('./models/Lastikci');
 const Taksi = require('./models/Taksi');
 const IsIlani = require('./models/IsIlani');
 const AppSettings = require('./models/AppSettings');
+const Payment = require('./models/Payment');
 const YoreselEtkinlikIsletme = require('./models/YoreselEtkinlikIsletme');
 const YoreselEtkinlikTalep = require('./models/YoreselEtkinlikTalep');
+const {
+  YORESEL_PAYMENT_PURPOSE,
+  PAYMENT_REQUIRED_MESSAGE,
+  PAYMENT_NOT_CONFIGURED_MESSAGE,
+  parseYoreselReservationFeeInput,
+  getYoreselReservationFee,
+  findPaidYoreselCredit,
+  consumePaidYoreselCredit,
+  serializeAppSettings,
+} = require('./utils/yoreselPayment');
+const {
+  isIyzicoConfigured,
+  publicApiBase,
+  initializeCheckoutForm,
+  retrieveCheckoutForm,
+  buildCheckoutRequest,
+} = require('./utils/iyzicoCheckout');
 const MemberDiscount = require('./models/MemberDiscount');
 const {
   normalizeMemberId,
@@ -29,6 +47,7 @@ const {
   generateUniqueMemberId,
   ensureUserMemberId,
   formatUserForClient,
+  normalizeUserLanguage,
 } = require('./utils/memberId');
 const {
   isTodayUsersSpecialDay,
@@ -759,6 +778,7 @@ app.post('/api/register', async (req, res) => {
       specialDay,
       address,
       kvkkConsent,
+      language,
     } = req.body;
 
     // Validation
@@ -833,6 +853,7 @@ app.post('/api/register', async (req, res) => {
         acceptedAt: new Date(),
         textVersion: '2026-09-23',
       },
+      language: normalizeUserLanguage(language),
     });
 
     await user.save();
@@ -877,17 +898,17 @@ app.post('/api/upload/image', (req, res) => {
   });
 });
 
-// Uygulama ayarları (ana sayfa fotoğrafı vb.)
+// Uygulama ayarları (ana sayfa fotoğrafı, yöresel rezervasyon bedeli)
 app.get('/api/app-settings', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: 'Veritabanı bağlantısı yok' });
     }
     const doc = await AppSettings.findOne().lean();
-    res.json({ homeImageUrl: (doc && doc.homeImageUrl) ? doc.homeImageUrl : '' });
+    res.json(serializeAppSettings(doc, isIyzicoConfigured()));
   } catch (e) {
     console.error('App settings get error:', e);
-    res.status(500).json({ error: 'Ayarlar alınamadı', homeImageUrl: '' });
+    res.status(500).json({ error: 'Ayarlar alınamadı', ...serializeAppSettings(null, isIyzicoConfigured()) });
   }
 });
 
@@ -896,13 +917,23 @@ async function updateAppSettingsHandler(req, res) {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: 'Veritabanı bağlantısı yok' });
     }
-    const homeImageUrl = (req.body.homeImageUrl != null ? String(req.body.homeImageUrl) : '').trim();
-    const doc = await AppSettings.findOneAndUpdate(
-      {},
-      { $set: { homeImageUrl } },
-      { new: true, upsert: true }
-    ).lean();
-    res.json({ homeImageUrl: doc.homeImageUrl || '' });
+    const $set = {};
+    if (req.body.homeImageUrl != null) {
+      $set.homeImageUrl = String(req.body.homeImageUrl).trim();
+    }
+    if (req.body.yoreselReservationFee != null) {
+      try {
+        $set.yoreselReservationFee = parseYoreselReservationFeeInput(req.body.yoreselReservationFee);
+      } catch (feeErr) {
+        return res.status(feeErr.status || 400).json({ error: feeErr.message });
+      }
+    }
+    if (Object.keys($set).length === 0) {
+      const current = await AppSettings.findOne().lean();
+      return res.json(serializeAppSettings(current, isIyzicoConfigured()));
+    }
+    const doc = await AppSettings.findOneAndUpdate({}, { $set }, { new: true, upsert: true }).lean();
+    res.json(serializeAppSettings(doc, isIyzicoConfigured()));
   } catch (e) {
     console.error('App settings update error:', e);
     res.status(500).json({ error: 'Ayarlar güncellenemedi', message: e.message });
@@ -910,6 +941,185 @@ async function updateAppSettingsHandler(req, res) {
 }
 app.patch('/api/app-settings', updateAppSettingsHandler);
 app.put('/api/app-settings', updateAppSettingsHandler);
+
+function yoreselPaymentStatusPayload(fee, paidDoc) {
+  const required = fee > 0;
+  return {
+    fee,
+    currency: 'TRY',
+    required,
+    paid: required ? !!paidDoc : true,
+    paymentConfigured: isIyzicoConfigured(),
+    paymentId: paidDoc && paidDoc._id ? String(paidDoc._id) : null,
+  };
+}
+
+app.get('/api/payments/yoresel/status', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Veritabanı bağlantısı yok' });
+    }
+    const fee = await getYoreselReservationFee(AppSettings);
+    const userIdRaw = req.query.userId != null ? String(req.query.userId).trim() : '';
+    let paidDoc = null;
+    if (fee > 0 && userIdRaw && mongoose.Types.ObjectId.isValid(userIdRaw)) {
+      paidDoc = await findPaidYoreselCredit(Payment, userIdRaw);
+    }
+    res.json(yoreselPaymentStatusPayload(fee, paidDoc));
+  } catch (e) {
+    console.error('Yoresel payment status error:', e);
+    res.status(500).json({ error: 'Ödeme durumu alınamadı' });
+  }
+});
+
+app.post('/api/payments/yoresel/init', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Veritabanı bağlantısı yok' });
+    }
+    const fee = await getYoreselReservationFee(AppSettings);
+    if (fee <= 0) {
+      return res.status(400).json({ error: 'Rezervasyon bedeli tanımlı değil', code: 'FEE_NOT_SET' });
+    }
+    let userId;
+    try {
+      userId = await requireMemberUser(req.body?.userId);
+    } catch (authErr) {
+      return res.status(authErr.status || 401).json({ error: authErr.message || MEMBER_REQUIRED_MESSAGE });
+    }
+    const existing = await findPaidYoreselCredit(Payment, userId);
+    if (existing) {
+      return res.json({
+        alreadyPaid: true,
+        ...yoreselPaymentStatusPayload(fee, existing),
+      });
+    }
+    if (!isIyzicoConfigured()) {
+      return res.status(503).json({
+        error: PAYMENT_NOT_CONFIGURED_MESSAGE,
+        code: 'PAYMENT_NOT_CONFIGURED',
+      });
+    }
+    const user = await User.findById(userId).lean();
+    if (!user) {
+      return res.status(401).json({ error: MEMBER_REQUIRED_MESSAGE });
+    }
+    const payment = await Payment.create({
+      user: userId,
+      purpose: YORESEL_PAYMENT_PURPOSE,
+      amount: fee,
+      currency: 'TRY',
+      status: 'pending',
+      provider: 'iyzico',
+    });
+    const base = publicApiBase(req);
+    const callbackUrl = `${base}/api/payments/yoresel/iyzico-callback`;
+    const iyziReq = buildCheckoutRequest({ payment, user, fee, callbackUrl });
+    const result = await initializeCheckoutForm(iyziReq);
+    if (!result || result.status !== 'success' || !result.checkoutFormContent) {
+      payment.status = 'failed';
+      payment.lastError = result?.errorMessage || 'iyzico formu oluşturulamadı';
+      await payment.save();
+      return res.status(502).json({ error: payment.lastError, code: 'IYZICO_INIT_FAILED' });
+    }
+    payment.providerToken = result.token || '';
+    payment.conversationId = result.conversationId || String(payment._id);
+    payment.checkoutHtml = String(result.checkoutFormContent);
+    await payment.save();
+    res.status(201).json({
+      alreadyPaid: false,
+      paymentId: String(payment._id),
+      checkoutUrl: `${base}/api/payments/yoresel/pay/${payment._id}`,
+      ...yoreselPaymentStatusPayload(fee, null),
+    });
+  } catch (e) {
+    console.error('Yoresel payment init error:', e);
+    res.status(e.status || 500).json({ error: e.message || 'Ödeme başlatılamadı' });
+  }
+});
+
+function paymentResultHtml(title, body, ok) {
+  const color = ok ? '#1B4D4A' : '#B42318';
+  return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
+<style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;background:#F4F1EB;color:#1C1C1E;margin:0;padding:32px 20px;text-align:center}
+h1{color:${color};font-size:22px}p{font-size:16px;line-height:1.5}</style></head>
+<body><h1>${title}</h1><p>${body}</p></body></html>`;
+}
+
+app.get('/api/payments/yoresel/pay/:id', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).send(paymentResultHtml('Hata', 'Veritabanı bağlantısı yok.', false));
+    }
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).send(paymentResultHtml('Hata', 'Geçersiz ödeme.', false));
+    }
+    const payment = await Payment.findById(id).lean();
+    if (!payment) return res.status(404).send(paymentResultHtml('Hata', 'Ödeme bulunamadı.', false));
+    if (payment.status === 'paid' || payment.status === 'used') {
+      return res.send(paymentResultHtml('Ödeme alındı', 'Uygulamaya dönüp Talep gönder butonunu kullanabilirsiniz.', true));
+    }
+    if (!payment.checkoutHtml) {
+      return res.status(409).send(paymentResultHtml('Hata', 'Ödeme formu henüz hazır değil.', false));
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ödeme</title></head><body>${payment.checkoutHtml}</body></html>`);
+  } catch (e) {
+    console.error('Yoresel payment page error:', e);
+    res.status(500).send(paymentResultHtml('Hata', 'Ödeme sayfası açılamadı.', false));
+  }
+});
+
+async function finishIyzicoPayment(token, res) {
+  const result = await retrieveCheckoutForm(token);
+  const conversationId = result && result.conversationId ? String(result.conversationId) : '';
+  const payment = conversationId && mongoose.Types.ObjectId.isValid(conversationId)
+    ? await Payment.findById(conversationId)
+    : await Payment.findOne({ providerToken: token });
+  if (!payment) {
+    return res.status(404).send(paymentResultHtml('Hata', 'Ödeme kaydı bulunamadı.', false));
+  }
+  if (payment.status === 'paid' || payment.status === 'used') {
+    return res.send(paymentResultHtml('Ödeme alındı', 'Uygulamaya dönüp Talep gönder butonunu kullanabilirsiniz.', true));
+  }
+  const ok = result && result.status === 'success' && String(result.paymentStatus || '').toLowerCase() === 'success';
+  if (!ok) {
+    payment.status = 'failed';
+    payment.lastError = (result && (result.errorMessage || result.paymentStatus)) || 'Ödeme başarısız';
+    await payment.save();
+    return res.status(402).send(paymentResultHtml('Ödeme alınamadı', payment.lastError, false));
+  }
+  payment.status = 'paid';
+  payment.paidAt = new Date();
+  payment.providerPaymentId = result.paymentId || result.paymentTransactionId || '';
+  payment.providerToken = token || payment.providerToken;
+  payment.lastError = '';
+  await payment.save();
+  return res.send(paymentResultHtml('Ödeme alındı', 'Uygulamaya dönün. Talep gönder butonu artık aktif.', true));
+}
+
+app.post('/api/payments/yoresel/iyzico-callback', async (req, res) => {
+  try {
+    const token = String(req.body?.token || req.query.token || '').trim();
+    if (!token) return res.status(400).send(paymentResultHtml('Hata', 'Ödeme doğrulanamadı.', false));
+    await finishIyzicoPayment(token, res);
+  } catch (e) {
+    console.error('Yoresel iyzico callback error:', e);
+    res.status(500).send(paymentResultHtml('Hata', 'Ödeme doğrulanamadı.', false));
+  }
+});
+
+app.get('/api/payments/yoresel/iyzico-callback', async (req, res) => {
+  try {
+    const token = String(req.query.token || '').trim();
+    if (!token) return res.status(400).send(paymentResultHtml('Hata', 'Ödeme doğrulanamadı.', false));
+    await finishIyzicoPayment(token, res);
+  } catch (e) {
+    console.error('Yoresel iyzico callback get error:', e);
+    res.status(500).send(paymentResultHtml('Hata', 'Ödeme doğrulanamadı.', false));
+  }
+});
 
 // İşletme kayıt endpoint
 app.post('/api/register-business', async (req, res) => {
@@ -1647,6 +1857,17 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
     if (wouldExceedLimit(periodCount, YORESEL_PERIOD_RESERVATION_LIMIT)) {
       return res.status(429).json({ error: YORESEL_PERIOD_LIMIT_MESSAGE, code: 'PERIOD_LIMIT' });
     }
+    const yoreselFee = await getYoreselReservationFee(AppSettings);
+    if (yoreselFee > 0) {
+      const paidCredit = await findPaidYoreselCredit(Payment, userId);
+      if (!paidCredit) {
+        return res.status(402).json({
+          error: PAYMENT_REQUIRED_MESSAGE,
+          code: 'PAYMENT_REQUIRED',
+          fee: yoreselFee,
+        });
+      }
+    }
     let targetIsletme = null;
     const serviceTargets = {};
     const serviceTimeSlots = {};
@@ -1739,6 +1960,17 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
       note: String(body.note || '').trim(),
       status: 'pending',
     });
+    if (yoreselFee > 0) {
+      const consumed = await consumePaidYoreselCredit(Payment, userId, talep._id);
+      if (!consumed) {
+        await YoreselEtkinlikTalep.deleteOne({ _id: talep._id });
+        return res.status(402).json({
+          error: PAYMENT_REQUIRED_MESSAGE,
+          code: 'PAYMENT_REQUIRED',
+          fee: yoreselFee,
+        });
+      }
+    }
     await talep.populate('user', 'name surname');
     const dailyCountAfter = await countYoreselUserReservationsToday(userId);
     const periodCountAfter = await countYoreselUserReservationsLastDays(userId, YORESEL_PERIOD_DAYS);

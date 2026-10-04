@@ -57,6 +57,12 @@ const userSchema = new mongoose.Schema({
     acceptedAt: { type: Date, default: null },
     textVersion: { type: String, trim: true, default: '' },
   },
+  /** Kayıtta seçilir; sonradan değiştirilmez. */
+  language: {
+    type: String,
+    enum: ['tr', 'en'],
+    default: 'tr',
+  },
 }, {
   timestamps: true,
 });

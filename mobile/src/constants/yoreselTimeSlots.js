@@ -1,3 +1,5 @@
+import { txNow } from '../i18n/LanguageContext';
+
 /** Yöresel etkinlik rezervasyon dilimleri (backend ile aynı id'ler). */
 export const YORESEL_TIME_SLOTS = ['gunduz', 'aksam', 'tam_gun'];
 
@@ -31,7 +33,7 @@ export const YORESEL_CALENDAR_BARS = [
 export function yoreselTimeSlotLabel(id) {
   const opt = YORESEL_TIME_SLOT_OPTIONS.find((o) => o.id === id);
   if (!opt) return id || '—';
-  return `${opt.label} (${opt.range})`;
+  return `${txNow(opt.label)} (${opt.range})`;
 }
 
 export function yoreselTimeSlotsConflict(a, b) {

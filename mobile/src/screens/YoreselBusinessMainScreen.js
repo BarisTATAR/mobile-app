@@ -22,6 +22,8 @@ import YoreselAvailabilityCalendar from '../components/YoreselAvailabilityCalend
 import PremiumListingsPanel from '../components/PremiumListingsPanel';
 import { YORESEL_TIME_SLOT_OPTIONS, yoreselTimeSlotLabel } from '../constants/yoreselTimeSlots';
 import { DEFAULT_CITY } from '../services/turkeyAddressService';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const YORESEL_SESSION_KEY = 'yoreselBusinessSession';
 const TALEP_STATUS_LABELS = {
@@ -196,6 +198,7 @@ async function persistYoreselSession(loginName, isletmeler, selectedIsletmeId, m
 const EMPTY_VENUES = [];
 
 export default function YoreselBusinessMainScreen({ route, navigation }) {
+  const { tx } = useLanguage();
   const {
     isletmeler: routeIsletmeler = EMPTY_VENUES,
     selectedIsletmeId: routeSelectedId,
@@ -438,12 +441,12 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        Alert.alert('Hata', data.error || 'İşlem yapılamadı');
+        Alert.alert(tx('Hata'), data.error || 'İşlem yapılamadı');
         return;
       }
       await refresh();
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası');
     }
   };
 
@@ -475,7 +478,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('İzin', 'Galeri erişimi gerekli.');
+        Alert.alert(tx('İzin'), 'Galeri erişimi gerekli.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -501,10 +504,10 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
       if (res.ok && data.url) {
         setDuyuruForm((p) => ({ ...p, imageUrl: data.url }));
       } else {
-        Alert.alert('Hata', data.error || 'Yükleme başarısız.');
+        Alert.alert(tx('Hata'), data.error || 'Yükleme başarısız.');
       }
     } catch (e) {
-      Alert.alert('Hata', 'Fotoğraf yüklenemedi.');
+      Alert.alert(tx('Hata'), 'Fotoğraf yüklenemedi.');
     } finally {
       setDuyuruImageUploading(false);
     }
@@ -519,12 +522,12 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
 
   const saveDuyuru = async () => {
     if (!duyuruForm.title.trim()) {
-      Alert.alert('Uyarı', 'Başlık zorunlu.');
+      Alert.alert(tx('Uyarı'), 'Başlık zorunlu.');
       return;
     }
     const licErr = errorIfLicenseExpiryBeforeToday(duyuruForm.licenseExpiry);
     if (licErr) {
-      Alert.alert('Geçersiz tarih', licErr);
+      Alert.alert(tx('Geçersiz tarih'), licErr);
       return;
     }
     setDuyuruSaving(true);
@@ -552,7 +555,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        Alert.alert('Hata', data.error || 'Kaydedilemedi');
+        Alert.alert(tx('Hata'), data.error || 'Kaydedilemedi');
         return;
       }
       setDuyuruModal(false);
@@ -561,7 +564,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
       setDuyuruForm(emptyDuyuruForm(registeredDistrict));
       await fetchDuyurular();
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası');
     } finally {
       setDuyuruSaving(false);
     }
@@ -586,12 +589,12 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
               );
               const data = await res.json().catch(() => ({}));
               if (!res.ok) {
-                Alert.alert('Hata', data.error || 'Silinemedi');
+                Alert.alert(tx('Hata'), data.error || 'Silinemedi');
                 return;
               }
               await fetchDuyurular();
             } catch (e) {
-              Alert.alert('Hata', 'Bağlantı hatası');
+              Alert.alert(tx('Hata'), 'Bağlantı hatası');
             }
           },
         },
@@ -601,7 +604,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
 
   const saveManual = async () => {
     if (!manual.date || !manual.guestName.trim() || !manual.guestPhone.trim()) {
-      Alert.alert('Uyarı', 'Tarih, isim ve telefon zorunlu.');
+      Alert.alert(tx('Uyarı'), 'Tarih, isim ve telefon zorunlu.');
       return;
     }
     try {
@@ -619,14 +622,14 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        Alert.alert('Hata', data.error || 'Kayıt eklenemedi');
+        Alert.alert(tx('Hata'), data.error || 'Kayıt eklenemedi');
         return;
       }
       setManualModal(false);
       setManual({ date: todayStr(), eventType: 'dugun', timeSlot: 'gunduz', guestName: '', guestPhone: '', note: '' });
       await refresh();
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası');
     }
   };
 
@@ -675,13 +678,13 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
     <>
       {multiVenueLogin && neighborhoodOptions.length > 0 ? (
         <View style={styles.mahalleStrip}>
-          <Text style={styles.mahalleStripLabel}>Mahalle</Text>
+          <Text style={styles.mahalleStripLabel}>{tx('Mahalle')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.venueChips}>
             <TouchableOpacity
               style={[styles.mahalleChip, !mahalleFilter && styles.mahalleChipActive]}
               onPress={() => setMahalleFilter('')}
             >
-              <Text style={[styles.mahalleChipText, !mahalleFilter && styles.mahalleChipTextActive]}>Tümü</Text>
+              <Text style={[styles.mahalleChipText, !mahalleFilter && styles.mahalleChipTextActive]}>{tx('Tümü')}</Text>
             </TouchableOpacity>
             {neighborhoodOptions.map((m) => (
               <TouchableOpacity
@@ -735,11 +738,11 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
         </Text>
       ) : null}
       <TouchableOpacity style={styles.refreshCalBtn} onPress={fetchCalendar} disabled={calLoading}>
-        {calLoading ? <ActivityIndicator color="#34C759" /> : <Text style={styles.refreshCalText}>Takvimi yenile</Text>}
+        {calLoading ? <ActivityIndicator color="#1B4D4A" /> : <Text style={styles.refreshCalText}>{tx('Takvimi yenile')}</Text>}
       </TouchableOpacity>
 
       {selectedId && calLoading && !calLoaded ? (
-        <ActivityIndicator style={styles.calSpinner} color="#34C759" />
+        <ActivityIndicator style={styles.calSpinner} color="#1B4D4A" />
       ) : selectedId ? (
         <View style={styles.calWrap}>
           <YoreselAvailabilityCalendar
@@ -816,7 +819,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
             </Text>
             <View style={styles.duyuruActions}>
               <TouchableOpacity style={styles.duyuruEditBtn} onPress={() => openDuyuruModal(item)}>
-                <Text style={styles.duyuruEditBtnText}>Düzenle</Text>
+                <Text style={styles.duyuruEditBtnText}>{tx('Düzenle')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.duyuruDeleteBtn} onPress={() => deleteDuyuru(item)}>
                 <Text style={styles.duyuruDeleteBtnText}>Çıkar</Text>
@@ -843,7 +846,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
             navigation.replace('Login');
           }}
         >
-          <Text style={styles.logout}>Çıkış</Text>
+          <Text style={styles.logout}>{tx('Çıkış')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -859,7 +862,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
             style={[styles.panelTab, panelMode === 'duyurular' && styles.panelTabActive]}
             onPress={() => setPanelMode('duyurular')}
           >
-            <Text style={[styles.panelTabText, panelMode === 'duyurular' && styles.panelTabTextActive]}>Duyurular</Text>
+            <Text style={[styles.panelTabText, panelMode === 'duyurular' && styles.panelTabTextActive]}>{tx('Duyurular')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -876,7 +879,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
         data={flatData}
         keyExtractor={(item) => item._id}
         ListHeaderComponent={listHeader}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />}
         ListEmptyComponent={
           !refreshing && flatData.length === 0 ? (
             <Text style={styles.empty}>{tab === 'pending' ? 'Bekleyen onay yok.' : 'Bu tarihte kayıt yok.'}</Text>
@@ -890,7 +893,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
         data={duyurular}
         keyExtractor={(item) => item._id}
         ListHeaderComponent={duyuruHeader}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />}
         ListEmptyComponent={
           !refreshing && duyurular.length === 0 ? (
             <Text style={styles.empty}>Henüz duyuru yok. Yeni duyuru paylaşabilirsiniz.</Text>
@@ -915,7 +918,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
             <Text style={styles.modalTitle}>Takvim — {date}</Text>
             <Text style={styles.dayDetailHint}>Etkinlik türü, bu mekânın rolü, iletişim ve not bilgileri</Text>
             {dateFetching ? (
-              <ActivityIndicator style={styles.dayDetailSpinner} color="#34C759" />
+              <ActivityIndicator style={styles.dayDetailSpinner} color="#1B4D4A" />
             ) : list.length === 0 ? (
               <Text style={styles.dayDetailEmpty}>Bu tarihte kayıt yok.</Text>
             ) : (
@@ -928,7 +931,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
               </ScrollView>
             )}
             <TouchableOpacity style={styles.dayDetailCloseBtn} onPress={() => setDayDetailModal(false)}>
-              <Text style={styles.dayDetailCloseBtnText}>Kapat</Text>
+              <Text style={styles.dayDetailCloseBtnText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -939,7 +942,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Manuel rezervasyon</Text>
             <TextInput style={styles.input} value={manual.date} onChangeText={(v) => setManual((p) => ({ ...p, date: v }))} placeholder="YYYY-AA-GG" />
-            <Text style={styles.manualSlotLabel}>Rezervasyon dilimi</Text>
+            <Text style={styles.manualSlotLabel}>{tx('Rezervasyon dilimi')}</Text>
             <View style={styles.eventWrap}>
               {YORESEL_TIME_SLOT_OPTIONS.filter((o) => {
                 const offered = selectedVenue?.offeredTimeSlots || calOfferedSlots;
@@ -957,7 +960,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
               ))}
             </View>
             <TextInput style={styles.input} value={manual.guestName} onChangeText={(v) => setManual((p) => ({ ...p, guestName: v }))} placeholder="İsim Soyisim" />
-            <TextInput style={styles.input} value={manual.guestPhone} onChangeText={(v) => setManual((p) => ({ ...p, guestPhone: v.replace(/[^\d]/g, '') }))} placeholder="Telefon" keyboardType="number-pad" />
+            <TextInput style={styles.input} value={manual.guestPhone} onChangeText={(v) => setManual((p) => ({ ...p, guestPhone: v.replace(/[^\d]/g, '') }))} placeholder={tx('Telefon')} keyboardType="number-pad" />
             <View style={styles.eventWrap}>
               {EVENT_TYPES.map((ev) => (
                 <TouchableOpacity
@@ -971,8 +974,8 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
             </View>
             <TextInput style={[styles.input, styles.note]} value={manual.note} onChangeText={(v) => setManual((p) => ({ ...p, note: v }))} placeholder="Not (opsiyonel)" multiline />
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setManualModal(false)}><Text>İptal</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={saveManual}><Text style={{ color: '#fff' }}>Kaydet</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setManualModal(false)}><Text>{tx('İptal')}</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={saveManual}><Text style={{ color: '#fff' }}>{tx('Kaydet')}</Text></TouchableOpacity>
             </View>
           </View>
         </View>
@@ -987,13 +990,13 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
                 style={styles.input}
                 value={duyuruForm.title}
                 onChangeText={(v) => setDuyuruForm((p) => ({ ...p, title: v }))}
-                placeholder="Başlık *"
+                placeholder={tx('Başlık *')}
               />
               <TextInput
                 style={[styles.input, styles.note]}
                 value={duyuruForm.description}
                 onChangeText={(v) => setDuyuruForm((p) => ({ ...p, description: v }))}
-                placeholder="Açıklama"
+                placeholder={tx('Açıklama')}
                 multiline
               />
               <Text style={styles.duyuruFieldLabel}>İlçe (kayıtlı)</Text>
@@ -1003,12 +1006,12 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
                 onChangeText={(v) => setDuyuruForm((p) => ({ ...p, addressDistrict: v }))}
                 placeholder={registeredDistrict || 'İlçe'}
               />
-              <Text style={styles.duyuruFieldLabel}>Mahalle</Text>
+              <Text style={styles.duyuruFieldLabel}>{tx('Mahalle')}</Text>
               <TextInput
                 style={styles.input}
                 value={duyuruForm.addressNeighborhood}
                 onChangeText={(v) => setDuyuruForm((p) => ({ ...p, addressNeighborhood: v }))}
-                placeholder="Mahalle"
+                placeholder={tx('Mahalle')}
               />
               {['startDate', 'endDate', 'licenseExpiry'].map((field) => {
                 const labels = {
@@ -1051,12 +1054,12 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
                     />
                     <View style={styles.datePickerIosActions}>
                       <TouchableOpacity onPress={() => setDuyuruDatePickerField(null)}>
-                        <Text>İptal</Text>
+                        <Text>{tx('İptal')}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => applyDuyuruDatePicker(duyuruDatePickerField, duyuruDatePickerTemp)}
                       >
-                        <Text style={styles.datePickerIosOk}>Tamam</Text>
+                        <Text style={styles.datePickerIosOk}>{tx('Tamam')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1075,7 +1078,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
                   />
                 )
               ) : null}
-              <Text style={styles.duyuruFieldLabel}>Fotoğraf</Text>
+              <Text style={styles.duyuruFieldLabel}>{tx('Fotoğraf')}</Text>
               {duyuruForm.imageUrl ? (
                 <Image
                   source={{ uri: resolveDuyuruImageUri(duyuruForm.imageUrl) }}
@@ -1087,7 +1090,7 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
                 style={styles.input}
                 value={duyuruForm.imageUrl}
                 onChangeText={(v) => setDuyuruForm((p) => ({ ...p, imageUrl: v }))}
-                placeholder="Fotoğraf URL (yükle veya yapıştır)"
+                placeholder={tx('Fotoğraf URL (yükle veya yapıştır)')}
               />
               <TouchableOpacity
                 style={[styles.uploadImageBtn, duyuruImageUploading && styles.uploadImageBtnDisabled]}
@@ -1115,10 +1118,10 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
                 onPress={() => { setDuyuruModal(false); setDuyuruDatePickerField(null); }}
                 disabled={duyuruSaving}
               >
-                <Text>İptal</Text>
+                <Text>{tx('İptal')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={saveDuyuru} disabled={duyuruSaving}>
-                {duyuruSaving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff' }}>Kaydet</Text>}
+                {duyuruSaving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff' }}>{tx('Kaydet')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -1129,24 +1132,24 @@ export default function YoreselBusinessMainScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { backgroundColor: '#34C759', paddingTop: 46, paddingBottom: 14, paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
+  header: { backgroundColor: '#1B4D4A', paddingTop: 46, paddingBottom: 14, paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerTitle: { color: '#fff', fontWeight: '700', fontSize: 17, flex: 1, paddingRight: 8 },
   logout: { color: '#fff', fontWeight: '700' },
   panelTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e6e6e6' },
   panelTab: { flex: 1, alignItems: 'center', paddingVertical: 12 },
-  panelTabActive: { borderBottomWidth: 2, borderBottomColor: '#34C759' },
+  panelTabActive: { borderBottomWidth: 2, borderBottomColor: '#1B4D4A' },
   panelTabText: { color: '#666', fontWeight: '600' },
-  panelTabTextActive: { color: '#34C759', fontWeight: '700' },
+  panelTabTextActive: { color: '#1B4D4A', fontWeight: '700' },
   duyuruHint: { marginHorizontal: 12, marginTop: 12, fontSize: 13, color: '#555', lineHeight: 18 },
   duyuruEditBtn: {
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
   },
-  duyuruEditBtnText: { color: '#34C759', fontWeight: '700' },
+  duyuruEditBtnText: { color: '#1B4D4A', fontWeight: '700' },
   duyuruActions: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
   duyuruDeleteBtn: {
     paddingVertical: 8,
@@ -1176,7 +1179,7 @@ const styles = StyleSheet.create({
   dateTouchIcon: { fontSize: 16 },
   datePickerIosWrap: { marginBottom: 8 },
   datePickerIosActions: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
-  datePickerIosOk: { color: '#34C759', fontWeight: '700' },
+  datePickerIosOk: { color: '#1B4D4A', fontWeight: '700' },
   duyuruFormThumb: { width: '100%', height: 140, borderRadius: 10, marginBottom: 8, backgroundColor: '#eee' },
   uploadImageBtn: {
     backgroundColor: '#2e7d32',
@@ -1226,12 +1229,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
     backgroundColor: '#fff',
     maxWidth: 200,
   },
-  venueChipActive: { backgroundColor: '#34C759' },
-  venueChipText: { color: '#34C759', fontWeight: '600', fontSize: 14 },
+  venueChipActive: { backgroundColor: '#1B4D4A' },
+  venueChipText: { color: '#1B4D4A', fontWeight: '600', fontSize: 14 },
   venueChipTextActive: { color: '#fff' },
   manualBtn: { marginHorizontal: 12, marginTop: 12, backgroundColor: '#2e7d32', padding: 12, borderRadius: 10, alignItems: 'center' },
   manualBtnText: { color: '#fff', fontWeight: '700' },
@@ -1242,17 +1245,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
     alignItems: 'center',
   },
-  refreshCalText: { color: '#34C759', fontWeight: '700' },
+  refreshCalText: { color: '#1B4D4A', fontWeight: '700' },
   calWrap: { marginHorizontal: 12, marginTop: 10 },
   calSpinner: { marginVertical: 16 },
   tabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e6e6e6', marginTop: 12 },
   tab: { flex: 1, alignItems: 'center', padding: 12 },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#34C759' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#1B4D4A' },
   tabText: { color: '#666' },
-  tabTextActive: { color: '#34C759', fontWeight: '700' },
+  tabTextActive: { color: '#1B4D4A', fontWeight: '700' },
   selectedDateLine: { paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, fontWeight: '600', color: '#333' },
   card: { backgroundColor: '#fff', marginHorizontal: 12, marginTop: 10, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#ececec' },
   rowTitle: { fontWeight: '700', color: '#222' },
@@ -1261,7 +1264,7 @@ const styles = StyleSheet.create({
   manualBadge: { marginTop: 6, color: '#1b5e20', fontWeight: '700' },
   actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  approve: { backgroundColor: '#34C759' },
+  approve: { backgroundColor: '#1B4D4A' },
   reject: { backgroundColor: '#dc3545' },
   actionText: { color: '#fff', fontWeight: '700' },
   empty: { textAlign: 'center', marginTop: 28, color: '#777', paddingHorizontal: 20 },
@@ -1272,13 +1275,13 @@ const styles = StyleSheet.create({
   note: { minHeight: 70, textAlignVertical: 'top' },
   manualSlotLabel: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 6 },
   eventWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-  eventChip: { borderWidth: 1, borderColor: '#34C759', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 },
-  eventChipActive: { backgroundColor: '#34C759' },
-  eventChipText: { color: '#34C759', fontSize: 12 },
+  eventChip: { borderWidth: 1, borderColor: '#1B4D4A', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 },
+  eventChipActive: { backgroundColor: '#1B4D4A' },
+  eventChipText: { color: '#1B4D4A', fontSize: 12 },
   eventChipTextActive: { color: '#fff' },
   modalActions: { flexDirection: 'row', gap: 8, marginTop: 6 },
   cancelBtn: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, alignItems: 'center', padding: 10 },
-  saveBtn: { flex: 1, backgroundColor: '#34C759', borderRadius: 10, alignItems: 'center', padding: 10 },
+  saveBtn: { flex: 1, backgroundColor: '#1B4D4A', borderRadius: 10, alignItems: 'center', padding: 10 },
   dayDetailModalBox: { maxHeight: '88%' },
   dayDetailHint: { fontSize: 13, color: '#666', marginBottom: 10 },
   dayDetailScroll: { maxHeight: 420 },
@@ -1296,7 +1299,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     alignItems: 'center',
   },
   dayDetailCloseBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },

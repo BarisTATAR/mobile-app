@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { getCurrentPosition } from '../services/locationService';
 import { sortItemsByDistance, formatDistanceKm } from '../utils/listDistanceSort';
+import { txNow } from '../i18n/LanguageContext';
 
 export function useNearbySort(items) {
   const [sortByNearby, setSortByNearby] = useState(false);
@@ -18,8 +19,8 @@ export function useNearbySort(items) {
       const coords = userLocation || (await getCurrentPosition());
       if (!coords) {
         Alert.alert(
-          'Konum alınamadı',
-          'Yakından uzağa sıralamak için konum iznini açın ve tekrar deneyin.',
+          txNow('Konum alınamadı'),
+          txNow('Yakından uzağa sıralamak için konum iznini açın ve tekrar deneyin.'),
         );
         return;
       }

@@ -4,6 +4,7 @@
  * React Native'de URLSearchParams.set desteklenmediği için manuel builder kullanılır.
  */
 import { DEFAULT_CITY } from '../services/turkeyAddressService';
+import { txNow } from '../i18n/LanguageContext';
 
 class ListQueryParams {
   constructor() {
@@ -40,9 +41,14 @@ export function buildListAddressQueryParams(district, neighborhood, options = {}
 export function formatListFilterLabel(district, neighborhood) {
   const d = district != null ? String(district).trim() : '';
   const n = neighborhood != null ? String(neighborhood).trim() : '';
-  if (!d && !n) return 'Tüm ilçeler';
+  if (!d && !n) return txNow('Tüm ilçeler');
   if (d && n) return `${d} / ${n}`;
   return d || n;
+}
+
+export function formatListCountStatus(filterLabel, count) {
+  if (count > 0) return txNow('{place}: {count} kayıt', { place: filterLabel, count });
+  return txNow('{place}: kayıt yok', { place: filterLabel });
 }
 
 export function listAddressQueryString(district, neighborhood) {

@@ -16,6 +16,8 @@ import { apiUrl } from '../config/api';
 import { getLocationWithCityDistrict } from '../services/locationService';
 import { getProvinces, getDistrictsForProvince, DEFAULT_CITY, matchMuglaDistrict, filterPharmaciesByDistrict, resolveLocationPlace } from '../services/turkeyAddressService';
 import { useUserDefaultDistrict } from '../hooks/useUserDefaultDistrict';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 async function fetchOnDutyWithRetry(url, attempts = 3) {
   let lastError = null;
@@ -48,6 +50,7 @@ async function fetchOnDutyWithRetry(url, attempts = 3) {
 }
 
 export default function PharmacyOnDutyScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [locationStatus, setLocationStatus] = useState('idle'); // idle | loading | ok | error
   const [city, setCity] = useState(DEFAULT_CITY);
   const [district, setDistrict] = useState('');
@@ -184,33 +187,33 @@ export default function PharmacyOnDutyScreen({ navigation }) {
     const lon = item.location?.longitude;
     if (lat != null && lon != null) {
       const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-      Linking.openURL(url).catch(() => Alert.alert('Hata', 'Harita açılamadı'));
+      Linking.openURL(url).catch(() => Alert.alert(tx('Hata'), 'Harita açılamadı'));
     }
   };
 
   const callPhone = (phone) => {
     if (!phone) return;
     const tel = String(phone).replace(/\s/g, '');
-    Linking.openURL(`tel:${tel}`).catch(() => Alert.alert('Hata', 'Arama başlatılamadı'));
+    Linking.openURL(`tel:${tel}`).catch(() => Alert.alert(tx('Hata'), 'Arama başlatılamadı'));
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Geri</Text>
+          <Text style={styles.backText}>← {tx('Geri')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Nöbetçi Eczaneler</Text>
+        <Text style={styles.title}>{tx('Nöbetçi Eczaneler')}</Text>
         <Text style={styles.subtitle}>
-          {[city, district].filter(Boolean).join(', ') || 'İlçe seçerek listele'}
+          {[city, district].filter(Boolean).join(', ') || tx('İlçe seçerek listele')}
         </Text>
       </View>
 
       <View style={styles.filterSection}>
-        <Text style={styles.filterLabel}>İlçe ({city || DEFAULT_CITY})</Text>
+        <Text style={styles.filterLabel}>{tx('İlçe')} ({city || DEFAULT_CITY})</Text>
         <TouchableOpacity style={styles.selectTouch} onPress={() => setDistrictModal(true)}>
           <Text style={[styles.selectText, !district && styles.selectPlaceholder]}>
-            {district || 'Tüm ilçeler'}
+            {district || tx('Tüm ilçeler')}
           </Text>
           <Text style={styles.selectArrow}>▼</Text>
         </TouchableOpacity>
@@ -222,7 +225,7 @@ export default function PharmacyOnDutyScreen({ navigation }) {
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.listBtnText}>Nöbetçi eczaneleri getir</Text>
+            <Text style={styles.listBtnText}>{tx('Nöbetçi eczaneleri getir')}</Text>
           )}
         </TouchableOpacity>
         <TouchableOpacity
@@ -231,14 +234,14 @@ export default function PharmacyOnDutyScreen({ navigation }) {
           disabled={locationStatus === 'loading' || loading}
         >
           <Text style={styles.retryLocationText}>
-            {locationStatus === 'loading' ? 'Konum alınıyor...' : 'Konumuma göre ilçe'}
+            {locationStatus === 'loading' ? tx('Konum alınıyor...') : tx('Konumuma göre ilçe')}
           </Text>
         </TouchableOpacity>
       </View>
 
       {error ? (
         <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>{tx(error)}</Text>
         </View>
       ) : null}
 
@@ -247,12 +250,12 @@ export default function PharmacyOnDutyScreen({ navigation }) {
         keyExtractor={(item) => item.id || String(Math.random())}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />
         }
         ListEmptyComponent={
           !loading && !refreshing ? (
             <Text style={styles.emptyText}>
-              {error ? '' : (city ? 'Bu bölgede bugün nöbetçi eczane bulunamadı.' : 'İlçe seçip "Nöbetçi eczaneleri getir"e basın.')}
+              {error ? '' : (city ? tx('Bu bölgede bugün nöbetçi eczane bulunamadı.') : tx('İlçe seçip "Nöbetçi eczaneleri getir"e basın.'))}
             </Text>
           ) : null
         }
@@ -284,9 +287,9 @@ export default function PharmacyOnDutyScreen({ navigation }) {
       <Modal visible={districtModal} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDistrictModal(false)}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>İlçe seçin</Text>
+            <Text style={styles.modalTitle}>{tx('İlçe seçin')}</Text>
             <TouchableOpacity style={styles.modalItem} onPress={() => selectDistrict('')}>
-              <Text style={styles.modalItemText}>Tüm ilçeler</Text>
+              <Text style={styles.modalItemText}>{tx('Tüm ilçeler')}</Text>
             </TouchableOpacity>
             <ScrollView style={styles.modalScroll}>
               {districtsList.map((d) => (
@@ -300,7 +303,7 @@ export default function PharmacyOnDutyScreen({ navigation }) {
               ))}
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={() => setDistrictModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -310,9 +313,9 @@ export default function PharmacyOnDutyScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   header: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingTop: 56,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -337,7 +340,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F1EB',
     borderWidth: 1,
     borderColor: '#e0e0e0',
     borderRadius: 10,
@@ -348,14 +351,14 @@ const styles = StyleSheet.create({
   selectPlaceholder: { color: '#888' },
   selectArrow: { fontSize: 12, color: '#666' },
   listBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
   listBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   retryLocationBtn: { marginHorizontal: 20, marginTop: 8, padding: 10, alignItems: 'center' },
-  retryLocationText: { color: '#34C759', fontSize: 14, fontWeight: '600' },
+  retryLocationText: { color: '#1B4D4A', fontSize: 14, fontWeight: '600' },
   errorBox: { margin: 16, padding: 16, backgroundColor: '#fff0f0', borderRadius: 12, borderWidth: 1, borderColor: '#ffcccc' },
   errorText: { fontSize: 14, color: '#c00' },
   listContent: { padding: 16, paddingBottom: 40 },
@@ -370,7 +373,7 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 17, fontWeight: '700', color: '#333', marginBottom: 8 },
   address: { fontSize: 14, color: '#555', marginBottom: 4 },
-  phone: { fontSize: 14, color: '#34C759', fontWeight: '600', marginTop: 4 },
+  phone: { fontSize: 14, color: '#1B4D4A', fontWeight: '600', marginTop: 4 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalBox: { backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '70%', paddingBottom: 24 },
   modalTitle: { fontSize: 18, fontWeight: '600', color: '#333', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
@@ -378,5 +381,5 @@ const styles = StyleSheet.create({
   modalItem: { padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
   modalItemText: { fontSize: 16, color: '#333' },
   modalClose: { padding: 16, alignItems: 'center' },
-  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#34C759' },
+  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
 });

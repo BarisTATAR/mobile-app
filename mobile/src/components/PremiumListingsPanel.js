@@ -20,6 +20,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { apiUrl } from '../config/api';
 import { DEFAULT_CITY } from '../services/turkeyAddressService';
 import PremiumMenuEditor from './PremiumMenuEditor';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 function parseDateStr(str) {
   const s = String(str || '').trim();
@@ -106,6 +108,7 @@ export default function PremiumListingsPanel({
   displayName = '',
   registeredDistrict = '',
 }) {
+  const { tx } = useLanguage();
   const [subTab, setSubTab] = useState('kampanya');
   const [kampanyalar, setKampanyalar] = useState([]);
   const [isIlanlari, setIsIlanlari] = useState([]);
@@ -211,7 +214,7 @@ export default function PremiumListingsPanel({
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('İzin', 'Galeri erişimi gerekli.');
+        Alert.alert(tx('İzin'), 'Galeri erişimi gerekli.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -231,9 +234,9 @@ export default function PremiumListingsPanel({
       const res = await fetch(apiUrl('/api/upload/image'), { method: 'POST', body: formData });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) setter((p) => ({ ...p, imageUrl: data.url }));
-      else Alert.alert('Hata', data.error || 'Yükleme başarısız.');
+      else Alert.alert(tx('Hata'), data.error || 'Yükleme başarısız.');
     } catch (e) {
-      Alert.alert('Hata', 'Fotoğraf yüklenemedi.');
+      Alert.alert(tx('Hata'), 'Fotoğraf yüklenemedi.');
     } finally {
       setImageUploading(false);
     }
@@ -250,13 +253,13 @@ export default function PremiumListingsPanel({
     const isKampanya = subTab === 'kampanya';
     const form = isKampanya ? kampanyaForm : isIlaniForm;
     if (!form.title.trim()) {
-      Alert.alert('Uyarı', 'Başlık zorunlu.');
+      Alert.alert(tx('Uyarı'), 'Başlık zorunlu.');
       return;
     }
     if (isKampanya) {
       const licErr = errorIfLicenseExpiryBeforeToday(form.licenseExpiry);
       if (licErr) {
-        Alert.alert('Geçersiz tarih', licErr);
+        Alert.alert(tx('Geçersiz tarih'), licErr);
         return;
       }
     }
@@ -286,7 +289,7 @@ export default function PremiumListingsPanel({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        Alert.alert('Hata', data.error || 'Kaydedilemedi');
+        Alert.alert(tx('Hata'), data.error || 'Kaydedilemedi');
         return;
       }
       setModalVisible(false);
@@ -294,7 +297,7 @@ export default function PremiumListingsPanel({
       if (isKampanya) await fetchKampanyalar();
       else await fetchIsIlanlari();
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası');
     } finally {
       setSaving(false);
     }
@@ -302,7 +305,7 @@ export default function PremiumListingsPanel({
 
   const deleteItem = (item) => {
     const title = String(item?.title || 'Kayıt').trim();
-    Alert.alert('Sil', `"${title}" silinsin mi?`, [
+    Alert.alert(tx('Sil'), `"${title}" silinsin mi?`, [
       { text: 'İptal', style: 'cancel' },
       {
         text: 'Sil',
@@ -316,13 +319,13 @@ export default function PremiumListingsPanel({
             );
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-              Alert.alert('Hata', data.error || 'Silinemedi');
+              Alert.alert(tx('Hata'), data.error || 'Silinemedi');
               return;
             }
             if (subTab === 'kampanya') await fetchKampanyalar();
             else await fetchIsIlanlari();
           } catch (e) {
-            Alert.alert('Hata', 'Bağlantı hatası');
+            Alert.alert(tx('Hata'), 'Bağlantı hatası');
           }
         },
       },
@@ -361,7 +364,7 @@ export default function PremiumListingsPanel({
                 style={styles.datePickerOk}
                 onPress={() => applyDatePicker(field, datePickerTemp, setter)}
               >
-                <Text style={styles.datePickerOkText}>Tamam</Text>
+                <Text style={styles.datePickerOkText}>{tx('Tamam')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -424,12 +427,12 @@ export default function PremiumListingsPanel({
       </TouchableOpacity>
 
       {loading && !refreshing ? (
-        <ActivityIndicator style={styles.spinner} color="#34C759" />
+        <ActivityIndicator style={styles.spinner} color="#1B4D4A" />
       ) : (
         <FlatList
           data={listData}
           keyExtractor={(item) => item._id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />}
           ListEmptyComponent={
             <Text style={styles.empty}>
               {subTab === 'kampanya' ? 'Henüz kampanya/indirim yok.' : 'Henüz iş ilanı yok.'}
@@ -452,10 +455,10 @@ export default function PremiumListingsPanel({
                 ) : null}
                 <View style={styles.cardActions}>
                   <TouchableOpacity style={styles.editBtn} onPress={() => openModal(item)}>
-                    <Text style={styles.editBtnText}>Düzenle</Text>
+                    <Text style={styles.editBtnText}>{tx('Düzenle')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.delBtn} onPress={() => deleteItem(item)}>
-                    <Text style={styles.delBtnText}>Sil</Text>
+                    <Text style={styles.delBtnText}>{tx('Sil')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -487,7 +490,7 @@ export default function PremiumListingsPanel({
                 style={styles.input}
                 value={form.title}
                 onChangeText={(v) => setForm((p) => ({ ...p, title: v }))}
-                placeholder="Başlık *"
+                placeholder={tx('Başlık *')}
               />
               {subTab === 'kampanya' ? (
                 <>
@@ -495,19 +498,19 @@ export default function PremiumListingsPanel({
                     style={styles.input}
                     value={form.companyName}
                     onChangeText={(v) => setForm((p) => ({ ...p, companyName: v }))}
-                    placeholder="İşletme adı"
+                    placeholder={tx('İşletme adı')}
                   />
                   <TextInput
                     style={styles.input}
                     value={form.discountText}
                     onChangeText={(v) => setForm((p) => ({ ...p, discountText: v }))}
-                    placeholder="İndirim metni"
+                    placeholder={tx('İndirim metni')}
                   />
                   <TextInput
                     style={styles.input}
                     value={form.contactPhone}
                     onChangeText={(v) => setForm((p) => ({ ...p, contactPhone: v.replace(/[^\d]/g, '') }))}
-                    placeholder="İletişim telefonu"
+                    placeholder={tx('İletişim telefonu')}
                     keyboardType="number-pad"
                   />
                   {renderDateField('startDate', 'Kampanya başlangıç tarihi', form, setForm)}
@@ -525,39 +528,39 @@ export default function PremiumListingsPanel({
                     style={[styles.input, styles.multiline]}
                     value={form.description}
                     onChangeText={(v) => setForm((p) => ({ ...p, description: v }))}
-                    placeholder="Açıklama"
+                    placeholder={tx('Açıklama')}
                     multiline
                   />
                   <TextInput
                     style={styles.input}
                     value={form.contactPhone}
                     onChangeText={(v) => setForm((p) => ({ ...p, contactPhone: v.replace(/[^\d]/g, '') }))}
-                    placeholder="İletişim telefonu"
+                    placeholder={tx('İletişim telefonu')}
                     keyboardType="number-pad"
                   />
                   <TextInput
                     style={styles.input}
                     value={form.contactEmail}
                     onChangeText={(v) => setForm((p) => ({ ...p, contactEmail: v }))}
-                    placeholder="İletişim e-posta"
+                    placeholder={tx('İletişim e-posta')}
                     autoCapitalize="none"
                     keyboardType="email-address"
                   />
                 </>
               )}
-              <Text style={styles.fieldLabel}>İlçe</Text>
+              <Text style={styles.fieldLabel}>{tx('İlçe')}</Text>
               <TextInput
                 style={styles.input}
                 value={form.addressDistrict}
                 onChangeText={(v) => setForm((p) => ({ ...p, addressDistrict: v }))}
                 placeholder={registeredDistrict || 'İlçe'}
               />
-              <Text style={styles.fieldLabel}>Mahalle</Text>
+              <Text style={styles.fieldLabel}>{tx('Mahalle')}</Text>
               <TextInput
                 style={styles.input}
                 value={form.addressNeighborhood}
                 onChangeText={(v) => setForm((p) => ({ ...p, addressNeighborhood: v }))}
-                placeholder="Mahalle"
+                placeholder={tx('Mahalle')}
               />
               {form.imageUrl ? (
                 <Image source={{ uri: resolveImageUri(form.imageUrl) }} style={styles.formThumb} resizeMode="cover" />
@@ -576,10 +579,10 @@ export default function PremiumListingsPanel({
             </ScrollView>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
-                <Text>İptal</Text>
+                <Text>{tx('İptal')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={saveItem} disabled={saving}>
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Kaydet</Text>}
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{tx('Kaydet')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -593,13 +596,13 @@ const styles = StyleSheet.create({
   wrap: { flex: 1 },
   subTabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   subTab: { flex: 1, paddingVertical: 10, alignItems: 'center' },
-  subTabActive: { borderBottomWidth: 2, borderBottomColor: '#34C759' },
+  subTabActive: { borderBottomWidth: 2, borderBottomColor: '#1B4D4A' },
   subTabText: { fontSize: 14, color: '#666' },
-  subTabTextActive: { color: '#34C759', fontWeight: '600' },
+  subTabTextActive: { color: '#1B4D4A', fontWeight: '600' },
   addBtn: {
     margin: 12,
     padding: 12,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -655,10 +658,10 @@ const styles = StyleSheet.create({
   dateIcon: { fontSize: 16 },
   datePickerWrap: { marginBottom: 10 },
   datePickerOk: { alignItems: 'center', padding: 8 },
-  datePickerOkText: { color: '#34C759', fontWeight: '600' },
+  datePickerOkText: { color: '#1B4D4A', fontWeight: '600' },
   formThumb: { width: '100%', height: 100, borderRadius: 8, marginBottom: 8 },
   uploadBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     padding: 10,
     borderRadius: 8,
     alignItems: 'center',
@@ -668,6 +671,6 @@ const styles = StyleSheet.create({
   uploadBtnText: { color: '#fff', fontWeight: '600' },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#eee' },
   cancelBtn: { padding: 10 },
-  saveBtn: { backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
+  saveBtn: { backgroundColor: '#1B4D4A', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
   saveBtnText: { color: '#fff', fontWeight: '600' },
 });

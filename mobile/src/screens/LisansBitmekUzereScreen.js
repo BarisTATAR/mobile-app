@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { apiUrl } from '../config/api';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const EXPIRING_DAYS = 30;
 
@@ -137,6 +139,7 @@ function groupBySubcategory(typeKey, items) {
 }
 
 export default function LisansBitmekUzereScreen() {
+  const { tx } = useLanguage();
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -193,7 +196,7 @@ export default function LisansBitmekUzereScreen() {
     const licenseExpiry = formatDateToStr(dateNotBeforeToday(pickerDate));
     const dateErr = errorIfLicenseExpiryBeforeTodayStr(licenseExpiry);
     if (dateErr) {
-      Alert.alert('Tarih', dateErr);
+      Alert.alert(tx('Tarih'), dateErr);
       return;
     }
     setSaving(true);
@@ -205,15 +208,15 @@ export default function LisansBitmekUzereScreen() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        Alert.alert('Hata', json.error || json.message || 'Güncellenemedi');
+        Alert.alert(tx('Hata'), json.error || json.message || 'Güncellenemedi');
         return;
       }
       await fetchAll();
       const kampanya = typeKey === 'kampanyalar';
-      Alert.alert('Tamam', kampanya ? 'Kampanya bitiş tarihi güncellendi.' : 'Lisans bitiş tarihi güncellendi.');
+      Alert.alert(tx('Tamam'), kampanya ? 'Kampanya bitiş tarihi güncellendi.' : 'Lisans bitiş tarihi güncellendi.');
       closeEdit();
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası.');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası.');
     } finally {
       setSaving(false);
     }
@@ -224,7 +227,7 @@ export default function LisansBitmekUzereScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#34C759" />
+        <ActivityIndicator size="large" color="#1B4D4A" />
         <Text style={styles.loadingText}>Yükleniyor...</Text>
       </View>
     );
@@ -236,11 +239,11 @@ export default function LisansBitmekUzereScreen() {
         style={styles.container}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#34C759']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1B4D4A']} />
         }
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Lisansı bitmek üzere</Text>
+          <Text style={styles.title}>{tx('Lisansı bitmek üzere')}</Text>
           <Text style={styles.subtitle}>
             Önümüzdeki {EXPIRING_DAYS} gün içinde lisansı biten kayıtlar ({total} adet). Kayıtlar türe ve alt kategoriye göre gruplanır. Bir kayda dokunarak lisans bitiş tarihini güncelleyebilirsiniz.
           </Text>
@@ -317,7 +320,7 @@ export default function LisansBitmekUzereScreen() {
             />
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={closeEdit} disabled={saving}>
-                <Text style={styles.cancelBtnText}>İptal</Text>
+                <Text style={styles.cancelBtnText}>{tx('İptal')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -335,12 +338,12 @@ export default function LisansBitmekUzereScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#f5f5f5' },
+  flex: { flex: 1, backgroundColor: '#F4F1EB' },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F1EB',
   },
   loadingText: {
     marginTop: 8,
@@ -349,7 +352,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F1EB',
   },
   content: {
     padding: 16,
@@ -384,7 +387,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#34C759',
+    color: '#1B4D4A',
     marginBottom: 8,
   },
   subSection: {
@@ -403,7 +406,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 6,
     borderLeftWidth: 4,
-    borderLeftColor: '#34C759',
+    borderLeftColor: '#1B4D4A',
   },
   cardHint: {
     fontSize: 11,
@@ -470,7 +473,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   saveBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,

@@ -12,10 +12,17 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
 import { warmupAfterFirstPaint } from '../services/appWarmup';
+import { colors, shadow } from '../theme';
+import { useLanguage } from '../i18n/LanguageContext';
+import { usePageLanguage } from '../i18n/usePageLanguage';
+import { attachLanguageToUser } from '../i18n/userLanguageStore';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const APP_USER_KEY = 'appUser';
 
 export default function UserLoginScreen({ navigation }) {
+  const { setLang } = useLanguage();
+  const { pageLang, setPageLang, tx } = usePageLanguage('userLogin', 'tr');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,6 +36,9 @@ export default function UserLoginScreen({ navigation }) {
         const raw = await AsyncStorage.getItem(APP_USER_KEY);
         const user = raw ? JSON.parse(raw) : null;
         if (!cancelled && user && user.id && user.rememberMe !== false) {
+          const withLang = await attachLanguageToUser(user, user.username);
+          await AsyncStorage.setItem(APP_USER_KEY, JSON.stringify(withLang));
+          await setLang(withLang.language);
           navigation.replace('Main');
         }
       } catch (e) {}
@@ -40,7 +50,7 @@ export default function UserLoginScreen({ navigation }) {
     const user = (username || '').trim();
     const pass = password || '';
     if (!user || !pass) {
-      Alert.alert('Hata', 'Kullanıcı adı ve şifre girin.');
+      Alert.alert(tx('Hata'), tx('Kullanıcı adı ve şifre girin.'));
       return;
     }
     setLoading(true);
@@ -52,15 +62,17 @@ export default function UserLoginScreen({ navigation }) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success && data.user) {
-        const toSave = { ...data.user, rememberMe: keepSignedIn };
+        const withLang = await attachLanguageToUser(data.user, user);
+        const toSave = { ...withLang, rememberMe: keepSignedIn };
         await AsyncStorage.setItem(APP_USER_KEY, JSON.stringify(toSave));
+        await setLang(toSave.language);
         navigation.replace('Main');
         return;
       }
-      Alert.alert('Giriş başarısız', data.error || 'Geçersiz kullanıcı adı veya şifre.');
+      Alert.alert(tx('Giriş başarısız'), data.error || tx('Geçersiz kullanıcı adı veya şifre.'));
     } catch (e) {
       console.error('User login error:', e);
-      Alert.alert('Hata', 'Sunucuya bağlanılamadı. Backend çalışıyor mu?');
+      Alert.alert(tx('Hata'), tx('Sunucuya bağlanılamadı. Backend çalışıyor mu?'));
     } finally {
       setLoading(false);
     }
@@ -69,17 +81,34 @@ export default function UserLoginScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              testID="login-back"
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+            >
+              <Text style={styles.backButtonText}>{tx('Geri Dön')}</Text>
+            </TouchableOpacity>
+            <LanguageSwitcher
+              compact
+              value={pageLang}
+              onChange={setPageLang}
+              testIDPrefix="user-login"
+            />
+          </View>
           <View style={styles.header}>
-            <Text style={styles.title}>Kullanıcı Girişi</Text>
-            <Text style={styles.subtitle}>Lütfen bilgilerinizi girin</Text>
+            <Text style={styles.title}>{tx('Kullanıcı Girişi')}</Text>
+            <Text style={styles.subtitle}>{tx('Lütfen bilgilerinizi girin')}</Text>
           </View>
 
           <View style={styles.formContainer}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Kullanıcı Adı</Text>
+              <Text style={styles.label}>{tx('Kullanıcı Adı')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Kullanıcı adınızı girin"
+                placeholder={tx('Kullanıcı adınızı girin')}
                 placeholderTextColor="#999"
                 value={username}
                 onChangeText={setUsername}
@@ -92,10 +121,10 @@ export default function UserLoginScreen({ navigation }) {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Şifre</Text>
+              <Text style={styles.label}>{tx('Şifre')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Şifrenizi girin"
+                placeholder={tx('Şifrenizi girin')}
                 placeholderTextColor="#999"
                 value={password}
                 onChangeText={setPassword}
@@ -116,7 +145,7 @@ export default function UserLoginScreen({ navigation }) {
               <View style={[styles.checkbox, keepSignedIn && styles.checkboxChecked]}>
                 {keepSignedIn ? <Text style={styles.checkboxTick}>✓</Text> : null}
               </View>
-              <Text style={styles.checkboxLabel}>Oturum açık kalsın</Text>
+              <Text style={styles.checkboxLabel}>{tx('Oturum açık kalsın')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -127,20 +156,12 @@ export default function UserLoginScreen({ navigation }) {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#34C759" />
+                <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.loginButtonText}>Giriş Yap</Text>
+                <Text style={styles.loginButtonText}>{tx('Giriş Yap')}</Text>
               )}
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.backButtonText}>Geri Dön</Text>
-          </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -149,84 +170,85 @@ export default function UserLoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.bg,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 48,
+    paddingHorizontal: 22,
+    paddingTop: 18,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 28,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#34C759',
-    marginBottom: 10,
+    fontWeight: '800',
+    color: colors.primary,
+    marginBottom: 8,
+    letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textMuted,
   },
   formContainer: {
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.card,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.bg,
     borderWidth: 1.5,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    padding: 15,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 14,
     fontSize: 16,
-    color: '#333',
+    color: colors.text,
   },
   loginButton: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#34C759',
-    padding: 18,
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    padding: 16,
+    borderRadius: 14,
     alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 3,
+    marginTop: 6,
   },
   loginButtonText: {
-    color: '#34C759',
-    fontSize: 18,
-    fontWeight: '600',
+    color: colors.white,
+    fontSize: 17,
+    fontWeight: '700',
   },
   loginButtonDisabled: {
     opacity: 0.7,
   },
   backButton: {
-    marginTop: 20,
-    padding: 15,
-    alignItems: 'center',
+    paddingVertical: 8,
+    paddingRight: 12,
   },
   backButtonText: {
-    color: '#34C759',
+    color: colors.primary,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   checkboxRow: {
     flexDirection: 'row',
@@ -237,23 +259,23 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: '#34C759',
+    borderColor: colors.primary,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#34C759',
+    backgroundColor: colors.primary,
   },
   checkboxTick: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 14,
     fontWeight: 'bold',
   },
   checkboxLabel: {
     marginLeft: 10,
     fontSize: 16,
-    color: '#333',
+    color: colors.text,
   },
 });
 

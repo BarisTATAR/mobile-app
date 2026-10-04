@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const shadow = Platform.select({
   ios: {
@@ -11,7 +13,8 @@ const shadow = Platform.select({
   android: { elevation: 3 },
 });
 
-export default function MapListingPin({ color = '#34C759', shape = 'circle', icon = null, size = 22 }) {
+export default function MapListingPin({ color = '#1B4D4A', shape = 'circle', icon = null, size = 22 }) {
+  const { tx } = useLanguage();
   const border = 2;
   const inner = Math.max(8, size - border * 2);
 

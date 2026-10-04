@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useLanguage } from '../i18n/LanguageContext';
 import {
   formatListingOpeningHoursSummary,
   formatBusinessListHoursSummary,
 } from '../utils/openingHoursDisplay';
 
 export default function ListingHoursMenu({ item, textStyle, hoursStyle }) {
+  const { tx } = useLanguage();
   const hoursText = item?.activityField
     ? formatBusinessListHoursSummary(item)
     : formatListingOpeningHoursSummary(item);

@@ -6,17 +6,18 @@ import {
   TextInput,
   TouchableOpacity,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const YORESEL_SESSION_KEY = 'yoreselBusinessSession';
 
 export default function YoreselBusinessLoginScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,7 +58,7 @@ export default function YoreselBusinessLoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!name.trim() || !password) {
-      Alert.alert('Uyarı', 'Kullanıcı adı ve şifre girin.');
+      Alert.alert(tx('Uyarı'), 'Kullanıcı adı ve şifre girin.');
       return;
     }
     setLoading(true);
@@ -70,7 +71,7 @@ export default function YoreselBusinessLoginScreen({ navigation }) {
       const data = await res.json().catch(() => ({}));
       const list = Array.isArray(data.isletmeler) ? data.isletmeler : [];
       if (!res.ok || !data.success || list.length === 0) {
-        Alert.alert('Giriş başarısız', data.error || 'Geçersiz kullanıcı adı veya şifre.');
+        Alert.alert(tx('Giriş başarısız'), data.error || 'Geçersiz kullanıcı adı veya şifre.');
         return;
       }
       const firstId = list[0].id;
@@ -93,7 +94,7 @@ export default function YoreselBusinessLoginScreen({ navigation }) {
         premium: data.premium === true,
       });
     } catch (e) {
-      Alert.alert('Hata', 'Sunucuya bağlanılamadı.');
+      Alert.alert(tx('Hata'), 'Sunucuya bağlanılamadı.');
     } finally {
       setLoading(false);
     }
@@ -101,44 +102,51 @@ export default function YoreselBusinessLoginScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
-        <View style={styles.content}>
-          <Text style={styles.title}>Yöresel Etkinlik İşletme Girişi</Text>
+      <View style={styles.content}>
+          <Text style={styles.title}>{tx('Yöresel Etkinlik İşletme Girişi')}</Text>
           <Text style={styles.hint}>
             Çoklu mekanda adminin verdiği ortak «giriş kullanıcı adı» ile girin; tek mekanda işletme adı ile de giriş yapılır.
           </Text>
           <TextInput
             style={styles.input}
-            placeholder="Kullanıcı adı (veya tek mekanda işletme adı)"
+            placeholder={tx('Kullanıcı adı (veya tek mekanda işletme adı)')}
+            placeholderTextColor="#999"
             value={name}
             onChangeText={setName}
             autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            textContentType="none"
+            autoComplete="off"
           />
           <TextInput
             style={styles.input}
-            placeholder="Şifre"
+            placeholder={tx('Şifre')}
+            placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            textContentType="none"
+            autoComplete="off"
           />
           <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginText}>Giriş Yap</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginText}>{tx('Giriş Yap')}</Text>}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backText}>Geri Dön</Text>
+            <Text style={styles.backText}>{tx('Geri Dön')}</Text>
           </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  keyboardView: { flex: 1 },
-  content: { flex: 1, justifyContent: 'center', padding: 20 },
-  title: { fontSize: 24, fontWeight: '700', color: '#34C759', marginBottom: 12, textAlign: 'center' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
+  content: { flex: 1, paddingHorizontal: 20, paddingTop: 56 },
+  title: { fontSize: 24, fontWeight: '700', color: '#1B4D4A', marginBottom: 12, textAlign: 'center' },
   hint: { fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 18, textAlign: 'center' },
   input: {
     backgroundColor: '#fff',
@@ -148,8 +156,8 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
   },
-  loginBtn: { backgroundColor: '#34C759', padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 8 },
+  loginBtn: { backgroundColor: '#1B4D4A', padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 8 },
   loginText: { color: '#fff', fontWeight: '700' },
   backBtn: { marginTop: 14, alignItems: 'center' },
-  backText: { color: '#34C759', fontWeight: '600' },
+  backText: { color: '#1B4D4A', fontWeight: '600' },
 });

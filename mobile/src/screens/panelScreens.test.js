@@ -29,6 +29,7 @@ describe('operator and admin panels (smoke)', () => {
     expect(getByText('Admin Panel')).toBeTruthy();
     expect(getByText('Kullanıcılar')).toBeTruthy();
     expect(getByText('Bekleyen kayıtlar')).toBeTruthy();
+    expect(getByText('Yöresel etkinlik rezervasyon bedeli')).toBeTruthy();
   });
 
   test('Business main header', () => {

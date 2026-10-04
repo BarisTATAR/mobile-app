@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { apiUrl } from '../config/api';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 function parseDateStr(str) {
   if (!str || typeof str !== 'string') return new Date();
@@ -108,6 +110,7 @@ function SortableHeader({ label, columnKey, sortKey, sortDir, onSort, cellStyle,
 }
 
 export default function AdminUsersScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [users, setUsers] = useState([]);
   const [periodLabel, setPeriodLabel] = useState('');
   const [loading, setLoading] = useState(true);
@@ -224,7 +227,7 @@ export default function AdminUsersScreen({ navigation }) {
 
   const openDiscountModal = (user) => {
     if (!user?.memberId) {
-      Alert.alert('Üye numarası yok', 'Bu kullanıcının henüz üye numarası oluşturulmamış. Listeyi yenileyin.');
+      Alert.alert(tx('Üye numarası yok'), 'Bu kullanıcının henüz üye numarası oluşturulmamış. Listeyi yenileyin.');
       return;
     }
     setDiscountUser(user);
@@ -269,7 +272,7 @@ export default function AdminUsersScreen({ navigation }) {
   const saveDiscount = async () => {
     if (!discountUser?.memberId) return;
     if (!discountForm.business) {
-      Alert.alert('Uyarı', 'İşletme seçin.');
+      Alert.alert(tx('Uyarı'), 'İşletme seçin.');
       return;
     }
     setDiscountSaving(true);
@@ -290,12 +293,12 @@ export default function AdminUsersScreen({ navigation }) {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setDiscountModalVisible(false);
-        Alert.alert('Başarılı', `${discountUser.memberId} için indirim tanımlandı.`);
+        Alert.alert(tx('Başarılı'), `${discountUser.memberId} için indirim tanımlandı.`);
       } else {
-        Alert.alert('Hata', data.message ? `${data.error || 'Kaydedilemedi'}\n${data.message}` : (data.error || 'Kaydedilemedi'));
+        Alert.alert(tx('Hata'), data.message ? `${data.error || 'Kaydedilemedi'}\n${data.message}` : (data.error || 'Kaydedilemedi'));
       }
     } catch {
-      Alert.alert('Hata', 'Bağlantı hatası');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası');
     } finally {
       setDiscountSaving(false);
     }
@@ -306,7 +309,7 @@ export default function AdminUsersScreen({ navigation }) {
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#34C759" />
+        <ActivityIndicator size="large" color="#1B4D4A" />
       </SafeAreaView>
     );
   }
@@ -317,7 +320,7 @@ export default function AdminUsersScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>← Admin</Text>
         </TouchableOpacity>
-        <Text style={styles.toolbarTitle}>Kullanıcılar</Text>
+        <Text style={styles.toolbarTitle}>{tx('Kullanıcılar')}</Text>
         <View style={styles.toolbarSpacer} />
       </View>
 
@@ -342,7 +345,7 @@ export default function AdminUsersScreen({ navigation }) {
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#34C759']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1B4D4A']} />
         }
       >
         <ScrollView
@@ -468,7 +471,7 @@ export default function AdminUsersScreen({ navigation }) {
                 <Text style={styles.selectArrow}>▼</Text>
               </TouchableOpacity>
 
-              <Text style={styles.fieldLabel}>İndirim başlığı</Text>
+              <Text style={styles.fieldLabel}>{tx('İndirim başlığı')}</Text>
               <TextInput
                 style={styles.input}
                 value={discountForm.title}
@@ -477,7 +480,7 @@ export default function AdminUsersScreen({ navigation }) {
                 placeholderTextColor="#999"
               />
 
-              <Text style={styles.fieldLabel}>Açıklama</Text>
+              <Text style={styles.fieldLabel}>{tx('Açıklama')}</Text>
               <TextInput
                 style={[styles.input, styles.inputMultiline]}
                 value={discountForm.description}
@@ -518,7 +521,7 @@ export default function AdminUsersScreen({ navigation }) {
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setDiscountModalVisible(false)}>
-                <Text style={styles.cancelBtnText}>Vazgeç</Text>
+                <Text style={styles.cancelBtnText}>{tx('Vazgeç')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveBtn, discountSaving && styles.saveBtnDisabled]}
@@ -528,7 +531,7 @@ export default function AdminUsersScreen({ navigation }) {
                 {discountSaving ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.saveBtnText}>Kaydet</Text>
+                  <Text style={styles.saveBtnText}>{tx('Kaydet')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -560,15 +563,15 @@ export default function AdminUsersScreen({ navigation }) {
                 {Platform.OS === 'ios' ? (
                   <View style={styles.datePickerActions}>
                     <TouchableOpacity style={styles.dateCancelBtn} onPress={closeDatePicker}>
-                      <Text style={styles.dateCancelBtnText}>Vazgeç</Text>
+                      <Text style={styles.dateCancelBtnText}>{tx('Vazgeç')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.dateDoneBtn} onPress={confirmDatePicker}>
-                      <Text style={styles.dateDoneBtnText}>Tamam</Text>
+                      <Text style={styles.dateDoneBtnText}>{tx('Tamam')}</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <TouchableOpacity style={styles.pickerClose} onPress={closeDatePicker}>
-                    <Text style={styles.pickerCloseText}>Kapat</Text>
+                    <Text style={styles.pickerCloseText}>{tx('Kapat')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -579,7 +582,7 @@ export default function AdminUsersScreen({ navigation }) {
             <View style={styles.pickerLayer}>
               <Pressable style={styles.pickerOverlay} onPress={closeBusinessPicker} />
               <View style={styles.pickerBox}>
-                <Text style={styles.pickerTitle}>İşletme seçin</Text>
+                <Text style={styles.pickerTitle}>{tx('İşletme seçin')}</Text>
                 <Text style={styles.pickerSub}>
                   {businessLoading
                     ? 'Yükleniyor…'
@@ -590,7 +593,7 @@ export default function AdminUsersScreen({ navigation }) {
                         : 'Liste boş'}
                 </Text>
                 {businessLoading ? (
-                  <ActivityIndicator style={styles.pickerLoading} color="#34C759" />
+                  <ActivityIndicator style={styles.pickerLoading} color="#1B4D4A" />
                 ) : businessLoadError ? (
                   <View style={styles.pickerEmpty}>
                     <Text style={styles.pickerEmptyText}>{businessLoadError}</Text>
@@ -618,7 +621,7 @@ export default function AdminUsersScreen({ navigation }) {
                   </ScrollView>
                 )}
                 <TouchableOpacity style={styles.pickerClose} onPress={closeBusinessPicker}>
-                  <Text style={styles.pickerCloseText}>Kapat</Text>
+                  <Text style={styles.pickerCloseText}>{tx('Kapat')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -630,7 +633,7 @@ export default function AdminUsersScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   toolbar: {
     flexDirection: 'row',
@@ -643,7 +646,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e8e8e8',
   },
   backBtn: { paddingVertical: 10, paddingRight: 12, marginTop: 4 },
-  backBtnText: { color: '#34C759', fontSize: 16, fontWeight: '600' },
+  backBtnText: { color: '#1B4D4A', fontSize: 16, fontWeight: '600' },
   toolbarTitle: { fontSize: 18, fontWeight: '700', color: '#333', flex: 1, textAlign: 'center' },
   toolbarSpacer: { width: 72 },
   periodHint: {
@@ -664,7 +667,7 @@ const styles = StyleSheet.create({
   errorText: { color: '#c00', marginBottom: 10 },
   retryBtn: {
     alignSelf: 'flex-start',
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 8,
@@ -723,7 +726,7 @@ const styles = StyleSheet.create({
   successNum: { color: '#2e7d32', fontWeight: '700' },
   failNum: { color: '#c62828', fontWeight: '700' },
   discountBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 8,
     paddingHorizontal: 6,
     borderRadius: 8,
@@ -790,7 +793,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxOn: { backgroundColor: '#34C759', borderColor: '#34C759' },
+  checkboxOn: { backgroundColor: '#1B4D4A', borderColor: '#1B4D4A' },
   checkboxTick: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   checkboxLabel: { fontSize: 15, color: '#333' },
   modalActions: {
@@ -813,7 +816,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.7 },
@@ -839,7 +842,7 @@ const styles = StyleSheet.create({
   pickerRetryBtn: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     borderRadius: 8,
   },
   pickerRetryText: { color: '#fff', fontWeight: '600' },
@@ -848,7 +851,7 @@ const styles = StyleSheet.create({
   pickerItemSelected: { backgroundColor: '#e8f5e9' },
   pickerItemText: { fontSize: 16, color: '#333' },
   pickerClose: { padding: 16, alignItems: 'center' },
-  pickerCloseText: { color: '#34C759', fontWeight: '700', fontSize: 16 },
+  pickerCloseText: { color: '#1B4D4A', fontWeight: '700', fontSize: 16 },
   datePickerControl: { alignSelf: 'stretch' },
   datePickerActions: {
     flexDirection: 'row',
@@ -869,7 +872,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     alignItems: 'center',
   },
   dateDoneBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },

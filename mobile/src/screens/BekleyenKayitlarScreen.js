@@ -10,8 +10,11 @@ import {
   Alert,
 } from 'react-native';
 import { apiUrl } from '../config/api';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 export default function BekleyenKayitlarScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,11 +57,11 @@ export default function BekleyenKayitlarScreen({ navigation }) {
             const res = await fetch(apiUrl(`/api/admin/approve-business/${item._id}`), { method: 'POST' });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-              Alert.alert('Onaylandı', 'İşletme onaylandı. Giriş yapabilir ve kullanıcıda listelenecek.');
+              Alert.alert(tx('Onaylandı'), 'İşletme onaylandı. Giriş yapabilir ve kullanıcıda listelenecek.');
               await fetchList();
-            } else Alert.alert('Hata', data.error || 'Onaylama başarısız');
+            } else Alert.alert(tx('Hata'), data.error || 'Onaylama başarısız');
           } catch (e) {
-            Alert.alert('Hata', 'Bağlantı hatası');
+            Alert.alert(tx('Hata'), 'Bağlantı hatası');
           } finally {
             setActionId(null);
           }
@@ -79,11 +82,11 @@ export default function BekleyenKayitlarScreen({ navigation }) {
             const res = await fetch(apiUrl(`/api/admin/reject-business/${item._id}`), { method: 'POST' });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-              Alert.alert('Reddedildi', 'Kayıt reddedildi.');
+              Alert.alert(tx('Reddedildi'), 'Kayıt reddedildi.');
               await fetchList();
-            } else Alert.alert('Hata', data.error || 'Reddetme başarısız');
+            } else Alert.alert(tx('Hata'), data.error || 'Reddetme başarısız');
           } catch (e) {
-            Alert.alert('Hata', 'Bağlantı hatası');
+            Alert.alert(tx('Hata'), 'Bağlantı hatası');
           } finally {
             setActionId(null);
           }
@@ -95,7 +98,7 @@ export default function BekleyenKayitlarScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#34C759" />
+        <ActivityIndicator size="large" color="#1B4D4A" />
         <Text style={styles.loadingText}>Yükleniyor...</Text>
       </View>
     );
@@ -106,7 +109,7 @@ export default function BekleyenKayitlarScreen({ navigation }) {
       style={styles.container}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#34C759']} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1B4D4A']} />
       }
     >
       <Text style={styles.subtitle}>Uygulama üzerinden (İşletme kayıt ol) ile kayıt olan işletmeler. Onaylayınca giriş yapıp kullanıcıda listelenir.</Text>
@@ -149,7 +152,7 @@ export default function BekleyenKayitlarScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   content: { padding: 16, paddingBottom: 40 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
@@ -170,7 +173,7 @@ const styles = StyleSheet.create({
   approveBtn: {
     flex: 1,
     marginRight: 8,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',

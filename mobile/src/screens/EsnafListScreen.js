@@ -23,11 +23,14 @@ import ListingCardMedia from '../components/ListingCardMedia';
 import ListingMediaGalleryModal from '../components/ListingMediaGalleryModal';
 import { pinAppearanceForEsnaf, esnafCategoryLabel, esnafCategoryIcon, ESNAF_CATEGORY_FILTER_OPTIONS } from '../utils/mapMarkerColors';
 import { useUserDefaultDistrict } from '../hooks/useUserDefaultDistrict';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 // API yanıt vermezse kullanılacak Muğla ilçeleri (ilçe her zaman seçilebilir olsun)
 const MUGLA_DISTRICTS_FALLBACK = ['Bodrum', 'Dalaman', 'Datça', 'Fethiye', 'Kavaklıdere', 'Köyceğiz', 'Marmaris', 'Menteşe', 'Milas', 'Ortaca', 'Seydikemer', 'Ula', 'Yatağan'];
 
 export default function EsnafListScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [esnaflar, setEsnaflar] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -171,7 +174,7 @@ export default function EsnafListScreen({ navigation }) {
             {item.phone ? (
               <TouchableOpacity
                 onPress={() => {
-                  Alert.alert('Aransın mı?', item.phone, [
+                  Alert.alert(tx('Aransın mı?'), item.phone, [
                     { text: 'İptal', style: 'cancel' },
                     { text: 'Ara', onPress: () => Linking.openURL('tel:' + item.phone.replace(/\s/g, '')) },
                   ]);
@@ -201,30 +204,30 @@ export default function EsnafListScreen({ navigation }) {
     <View style={styles.listHeaderRoot}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Geri</Text>
+          <Text style={styles.backText}>← {tx('Geri')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Esnaf</Text>
+        <Text style={styles.title}>{tx('Esnaf')}</Text>
         <Text style={styles.subtitle}>
-          Aşağı kaydırarak filtreleri yukarı alın; esnaf listesinde daha fazla yer açılır.
+          {tx('Aşağı kaydırarak filtreleri yukarı alın; esnaf listesinde daha fazla yer açılır.')}
         </Text>
       </View>
 
       <View style={styles.filterSection}>
-        <Text style={styles.filterTitle}>Filtre (yukarı kaydırılabilir)</Text>
+        <Text style={styles.filterTitle}>{tx('Filtre (yukarı kaydırılabilir)')}</Text>
 
-        <Text style={styles.filterLabel}>İlçe</Text>
+        <Text style={styles.filterLabel}>{tx('İlçe')}</Text>
         <TouchableOpacity style={styles.selectTouch} onPress={() => setDistrictModal(true)}>
-          <Text style={[styles.selectText, !district && styles.selectPlaceholder]}>{district || 'Tümü'}</Text>
+          <Text style={[styles.selectText, !district && styles.selectPlaceholder]}>{district || tx('Tümü')}</Text>
           <Text style={styles.selectArrow}>▼</Text>
         </TouchableOpacity>
 
-        <Text style={styles.filterLabel}>Mahalle</Text>
+        <Text style={styles.filterLabel}>{tx('Mahalle')}</Text>
         <TouchableOpacity style={styles.selectTouch} onPress={() => district && setNeighborhoodModal(true)} disabled={!district}>
-          <Text style={[styles.selectText, !neighborhood && styles.selectPlaceholder]}>{neighborhood || 'Tümü'}</Text>
+          <Text style={[styles.selectText, !neighborhood && styles.selectPlaceholder]}>{neighborhood || tx('Tümü')}</Text>
           <Text style={styles.selectArrow}>▼</Text>
         </TouchableOpacity>
 
-        <Text style={styles.filterLabel}>Kategori</Text>
+        <Text style={styles.filterLabel}>{tx('Kategori')}</Text>
         <ScrollView
           horizontal
           nestedScrollEnabled
@@ -241,7 +244,7 @@ export default function EsnafListScreen({ navigation }) {
               activeOpacity={0.7}
             >
               <Text style={[styles.categoryChipText, category === opt.id && styles.categoryChipTextActive]}>
-                {opt.icon ? `${opt.icon} ` : ''}{opt.label}
+                {opt.icon ? `${opt.icon} ` : ''}{tx(opt.label)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -249,14 +252,14 @@ export default function EsnafListScreen({ navigation }) {
 
         <View style={styles.listeleRow}>
           <TouchableOpacity style={styles.filterBtn} onPress={loadList} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.filterBtnText}>Listele</Text>}
+            {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.filterBtnText}>{tx('Listele')}</Text>}
           </TouchableOpacity>
         </View>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
         {listError ? <Text style={styles.listErrorText}>{listError}</Text> : null}
       </View>
 
-      {viewMode === 'list' ? <Text style={styles.listSectionLabel}>Esnaflar</Text> : null}
+      {viewMode === 'list' ? <Text style={styles.listSectionLabel}>{tx('Esnaflar')}</Text> : null}
     </View>
   );
 
@@ -288,11 +291,11 @@ export default function EsnafListScreen({ navigation }) {
           styles.listContent,
           esnaflar.length === 0 && !loading ? styles.listContentGrow : null,
         ]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />}
         ListEmptyComponent={
           !loading ? (
             <Text style={styles.emptyText}>
-              {district || neighborhood || category ? 'Bu filtreye uygun esnaf yok.' : 'Henüz kayıtlı esnaf yok. Admin panelinden ekleyebilirsiniz.'}
+              {district || neighborhood || category ? tx('Bu filtreye uygun esnaf yok.') : tx('Henüz kayıtlı esnaf yok. Admin panelinden ekleyebilirsiniz.')}
             </Text>
           ) : null
         }
@@ -302,7 +305,7 @@ export default function EsnafListScreen({ navigation }) {
       <Modal visible={districtModal} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDistrictModal(false)}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>İlçe seçin</Text>
+            <Text style={styles.modalTitle}>{tx('İlçe seçin')}</Text>
             <TouchableOpacity
               style={styles.modalItem}
               onPress={() => {
@@ -311,11 +314,11 @@ export default function EsnafListScreen({ navigation }) {
                 setDistrictModal(false);
               }}
             >
-              <Text style={styles.modalItemText}>Tümü</Text>
+              <Text style={styles.modalItemText}>{tx('Tümü')}</Text>
             </TouchableOpacity>
             <ScrollView style={styles.modalScroll}>
               {districts.length === 0 ? (
-                <Text style={styles.modalEmptyHint}>İlçe listesi yükleniyor...</Text>
+                <Text style={styles.modalEmptyHint}>{tx('İlçe listesi yükleniyor...')}</Text>
               ) : (
                 districts.map((d) => (
                   <TouchableOpacity
@@ -333,7 +336,7 @@ export default function EsnafListScreen({ navigation }) {
               )}
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={() => setDistrictModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -342,9 +345,9 @@ export default function EsnafListScreen({ navigation }) {
       <Modal visible={neighborhoodModal} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setNeighborhoodModal(false)}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Mahalle seçin</Text>
+            <Text style={styles.modalTitle}>{tx('Mahalle seçin')}</Text>
             <TouchableOpacity style={styles.modalItem} onPress={() => { setNeighborhood(''); setNeighborhoodModal(false); }}>
-              <Text style={styles.modalItemText}>Tümü</Text>
+              <Text style={styles.modalItemText}>{tx('Tümü')}</Text>
             </TouchableOpacity>
             <ScrollView style={styles.modalScroll}>
               {neighborhoods.map((n) => (
@@ -354,7 +357,7 @@ export default function EsnafListScreen({ navigation }) {
               ))}
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={() => setNeighborhoodModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -370,22 +373,22 @@ export default function EsnafListScreen({ navigation }) {
       <Modal visible={categoryModal} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCategoryModal(false)}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Kategori seçin</Text>
+            <Text style={styles.modalTitle}>{tx('Kategori seçin')}</Text>
             <TouchableOpacity style={styles.modalItem} onPress={() => { setCategory(''); setCategoryModal(false); }}>
-              <Text style={styles.modalItemText}>Tümü</Text>
+              <Text style={styles.modalItemText}>{tx('Tümü')}</Text>
             </TouchableOpacity>
             <ScrollView style={styles.modalScroll}>
               {categories.map((c) => {
                 const icon = esnafCategoryIcon(c);
                 return (
                 <TouchableOpacity key={c} style={styles.modalItem} onPress={() => { setCategory(c); setCategoryModal(false); }}>
-                  <Text style={styles.modalItemText}>{icon ? `${icon} ` : ''}{c}</Text>
+                  <Text style={styles.modalItemText}>{icon ? `${icon} ` : ''}{tx(c)}</Text>
                 </TouchableOpacity>
                 );
               })}
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={() => setCategoryModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -395,11 +398,11 @@ export default function EsnafListScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   mapWrap: { flex: 1, minHeight: 360, marginHorizontal: 16, marginBottom: 16 },
-  listHeaderRoot: { backgroundColor: '#f5f5f5' },
+  listHeaderRoot: { backgroundColor: '#F4F1EB' },
   header: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingTop: 52,
     paddingBottom: 14,
     paddingHorizontal: 20,
@@ -427,7 +430,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F1EB',
     borderWidth: 1,
     borderColor: '#e0e0e0',
     borderRadius: 10,
@@ -448,11 +451,11 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     marginRight: 8,
   },
-  categoryChipActive: { backgroundColor: '#34C759', borderColor: '#2db34d' },
+  categoryChipActive: { backgroundColor: '#1B4D4A', borderColor: '#15635F' },
   categoryChipText: { fontSize: 14, color: '#555', fontWeight: '500' },
   categoryChipTextActive: { color: '#fff', fontWeight: '600' },
   filterBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
@@ -483,14 +486,14 @@ const styles = StyleSheet.create({
   cardTextBlock: { flex: 1, minWidth: 0 },
   cardImageWrap: { alignItems: 'center' },
   cardThumb: { width: 80, height: 80, borderRadius: 8, backgroundColor: '#eee' },
-  cardImageHint: { fontSize: 10, color: '#34C759', marginTop: 4 },
+  cardImageHint: { fontSize: 10, color: '#1B4D4A', marginTop: 4 },
   imageModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 16 },
   imageModalInner: { width: '100%', alignItems: 'center' },
   imageModalImage: { width: '100%', height: 400 },
-  imageModalCloseBtn: { marginTop: 16, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#34C759', borderRadius: 10 },
+  imageModalCloseBtn: { marginTop: 16, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#1B4D4A', borderRadius: 10 },
   imageModalCloseText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   name: { fontSize: 17, fontWeight: '700', color: '#333', marginBottom: 4 },
-  category: { fontSize: 14, color: '#34C759', fontWeight: '600', marginBottom: 6 },
+  category: { fontSize: 14, color: '#1B4D4A', fontWeight: '600', marginBottom: 6 },
   phone: { fontSize: 14, color: '#555', marginBottom: 2 },
   phoneTouch: { alignSelf: 'flex-start', marginBottom: 2 },
   address: { fontSize: 13, color: '#666', marginBottom: 2 },
@@ -503,5 +506,5 @@ const styles = StyleSheet.create({
   modalItemText: { fontSize: 16, color: '#333' },
   modalEmptyHint: { padding: 16, fontSize: 14, color: '#888', textAlign: 'center' },
   modalClose: { padding: 16, alignItems: 'center' },
-  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#34C759' },
+  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
 });

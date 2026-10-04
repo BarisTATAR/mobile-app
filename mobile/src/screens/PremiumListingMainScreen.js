@@ -3,8 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-na
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PremiumListingsPanel from '../components/PremiumListingsPanel';
 import { PREMIUM_LISTING_SESSION_KEY } from './PremiumListingLoginScreen';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 export default function PremiumListingMainScreen({ route, navigation }) {
+  const { tx } = useLanguage();
   const {
     ownerType,
     ownerId,
@@ -25,7 +28,7 @@ export default function PremiumListingMainScreen({ route, navigation }) {
             navigation.replace('Login');
           }}
         >
-          <Text style={styles.logout}>Çıkış</Text>
+          <Text style={styles.logout}>{tx('Çıkış')}</Text>
         </TouchableOpacity>
       </View>
       <PremiumListingsPanel
@@ -40,7 +43,7 @@ export default function PremiumListingMainScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -6,21 +6,22 @@ import {
   TextInput,
   TouchableOpacity,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { apiUrl } from '../config/api';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 export default function AdminLoginScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!username.trim() || !password) {
-      Alert.alert('Hata', 'Kullanıcı adı ve şifre girin');
+      Alert.alert(tx('Hata'), tx('Kullanıcı adı ve şifre girin'));
       return;
     }
     setLoading(true);
@@ -34,11 +35,11 @@ export default function AdminLoginScreen({ navigation }) {
       if (res.ok && data.success) {
         navigation.replace('AdminMain');
       } else {
-        Alert.alert('Hata', data.error || 'Giriş yapılamadı');
+        Alert.alert(tx('Hata'), data.error || 'Giriş yapılamadı');
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('Hata', 'Sunucuya bağlanılamadı');
+      Alert.alert(tx('Hata'), 'Sunucuya bağlanılamadı');
     } finally {
       setLoading(false);
     }
@@ -46,41 +47,43 @@ export default function AdminLoginScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <View style={styles.content}>
+      <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>Admin Girişi</Text>
-            <Text style={styles.subtitle}>Yönetici hesabıyla giriş yapın</Text>
+            <Text style={styles.title}>{tx('Admin Girişi')}</Text>
+            <Text style={styles.subtitle}>{tx('Yönetici hesabıyla giriş yapın')}</Text>
           </View>
 
           <View style={styles.formContainer}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Admin Kullanıcı Adı</Text>
+              <Text style={styles.label}>{tx('Admin Kullanıcı Adı')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Kullanıcı adınızı girin"
+                placeholder={tx('Kullanıcı adınızı girin')}
                 placeholderTextColor="#999"
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
                 autoCorrect={false}
+                spellCheck={false}
+                textContentType="none"
+                autoComplete="off"
               />
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Şifre</Text>
+              <Text style={styles.label}>{tx('Şifre')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Şifrenizi girin"
+                placeholder={tx('Şifrenizi girin')}
                 placeholderTextColor="#999"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
+                spellCheck={false}
+                textContentType="none"
+                autoComplete="off"
               />
             </View>
 
@@ -91,9 +94,9 @@ export default function AdminLoginScreen({ navigation }) {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#34C759" />
+                <ActivityIndicator color="#1B4D4A" />
               ) : (
-                <Text style={styles.loginButtonText}>Giriş Yap</Text>
+                <Text style={styles.loginButtonText}>{tx('Giriş Yap')}</Text>
               )}
             </TouchableOpacity>
 
@@ -101,7 +104,7 @@ export default function AdminLoginScreen({ navigation }) {
               style={styles.signUpLink}
               onPress={() => navigation.navigate('AdminSignUp')}
             >
-              <Text style={styles.signUpLinkText}>Admin Üye Ol</Text>
+              <Text style={styles.signUpLinkText}>{tx('Admin Üye Ol')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -110,10 +113,9 @@ export default function AdminLoginScreen({ navigation }) {
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
           >
-            <Text style={styles.backButtonText}>Geri Dön</Text>
+            <Text style={styles.backButtonText}>{tx('Geri Dön')}</Text>
           </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -121,15 +123,12 @@ export default function AdminLoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  keyboardView: {
-    flex: 1,
+    backgroundColor: '#F4F1EB',
   },
   content: {
     flex: 1,
-    padding: 20,
-    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 56,
   },
   header: {
     alignItems: 'center',
@@ -138,7 +137,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#34C759',
+    color: '#1B4D4A',
     marginBottom: 10,
   },
   subtitle: {
@@ -171,7 +170,7 @@ const styles = StyleSheet.create({
   loginButton: {
     backgroundColor: '#fff',
     borderWidth: 2,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
@@ -186,20 +185,20 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   loginButtonText: {
-    color: '#34C759',
+    color: '#1B4D4A',
     fontSize: 18,
     fontWeight: '600',
   },
   loginButtonDisabled: { opacity: 0.7 },
   signUpLink: { marginTop: 16, alignItems: 'center' },
-  signUpLinkText: { color: '#34C759', fontSize: 14, fontWeight: '600' },
+  signUpLinkText: { color: '#1B4D4A', fontSize: 14, fontWeight: '600' },
   backButton: {
     marginTop: 20,
     padding: 15,
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#34C759',
+    color: '#1B4D4A',
     fontSize: 16,
     fontWeight: '600',
   },

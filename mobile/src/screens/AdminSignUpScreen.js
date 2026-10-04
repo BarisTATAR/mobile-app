@@ -12,8 +12,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { API_BASE_URL } from '../config/api';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 export default function AdminSignUpScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [passwordRepeat, setPasswordRepeat] = useState('');
@@ -22,15 +25,15 @@ export default function AdminSignUpScreen({ navigation }) {
 
   const handleSignUp = async () => {
     if (!username.trim() || !password || !passwordRepeat) {
-      Alert.alert('Hata', 'Kullanıcı adı ve şifre alanları zorunludur');
+      Alert.alert(tx('Hata'), 'Kullanıcı adı ve şifre alanları zorunludur');
       return;
     }
     if (password !== passwordRepeat) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor');
+      Alert.alert(tx('Hata'), 'Şifreler eşleşmiyor');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Hata', 'Şifre en az 6 karakter olmalıdır');
+      Alert.alert(tx('Hata'), 'Şifre en az 6 karakter olmalıdır');
       return;
     }
     setLoading(true);
@@ -46,15 +49,15 @@ export default function AdminSignUpScreen({ navigation }) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
-        Alert.alert('Başarılı', 'Admin kaydı oluşturuldu. Giriş yapabilirsiniz.', [
+        Alert.alert(tx('Başarılı'), 'Admin kaydı oluşturuldu. Giriş yapabilirsiniz.', [
           { text: 'Tamam', onPress: () => navigation.replace('AdminLogin') },
         ]);
       } else {
-        Alert.alert('Hata', data.error || 'Kayıt yapılamadı');
+        Alert.alert(tx('Hata'), data.error || 'Kayıt yapılamadı');
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('Hata', 'Sunucuya bağlanılamadı');
+      Alert.alert(tx('Hata'), 'Sunucuya bağlanılamadı');
     } finally {
       setLoading(false);
     }
@@ -68,16 +71,16 @@ export default function AdminSignUpScreen({ navigation }) {
       >
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>Admin Kayıt</Text>
+            <Text style={styles.title}>{tx('Admin Kayıt')}</Text>
             <Text style={styles.subtitle}>Yönetici hesabı oluşturun (veritabanına kaydedilir)</Text>
           </View>
 
           <View style={styles.formContainer}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Kullanıcı Adı</Text>
+              <Text style={styles.label}>{tx('Kullanıcı Adı')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Admin kullanıcı adı"
+                placeholder={tx('Admin kullanıcı adı')}
                 placeholderTextColor="#999"
                 value={username}
                 onChangeText={setUsername}
@@ -88,7 +91,7 @@ export default function AdminSignUpScreen({ navigation }) {
               <Text style={styles.label}>Ad (isteğe bağlı)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Adınız"
+                placeholder={tx('Adınız')}
                 placeholderTextColor="#999"
                 value={name}
                 onChangeText={setName}
@@ -96,7 +99,7 @@ export default function AdminSignUpScreen({ navigation }) {
               />
             </View>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Şifre</Text>
+              <Text style={styles.label}>{tx('Şifre')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="En az 6 karakter"
@@ -108,10 +111,10 @@ export default function AdminSignUpScreen({ navigation }) {
               />
             </View>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Şifre (Tekrar)</Text>
+              <Text style={styles.label}>{tx('Şifre (Tekrar)')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Şifrenizi tekrar girin"
+                placeholder={tx('Şifrenizi tekrar girin')}
                 placeholderTextColor="#999"
                 value={passwordRepeat}
                 onChangeText={setPasswordRepeat}
@@ -128,13 +131,13 @@ export default function AdminSignUpScreen({ navigation }) {
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.submitButtonText}>Kayıt Ol</Text>
+                <Text style={styles.submitButtonText}>{tx('Kayıt Ol')}</Text>
               )}
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.backButtonText}>Geri Dön</Text>
+            <Text style={styles.backButtonText}>{tx('Geri Dön')}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -143,11 +146,11 @@ export default function AdminSignUpScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   keyboardView: { flex: 1 },
   content: { flex: 1, padding: 20, justifyContent: 'center' },
   header: { alignItems: 'center', marginBottom: 32 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#34C759', marginBottom: 8 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#1B4D4A', marginBottom: 8 },
   subtitle: { fontSize: 14, color: '#666', textAlign: 'center' },
   formContainer: { width: '100%', maxWidth: 400, alignSelf: 'center' },
   inputContainer: { marginBottom: 20 },
@@ -162,7 +165,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   submitButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
@@ -171,5 +174,5 @@ const styles = StyleSheet.create({
   submitButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   submitButtonDisabled: { opacity: 0.7 },
   backButton: { marginTop: 24, padding: 15, alignItems: 'center' },
-  backButtonText: { color: '#34C759', fontSize: 16, fontWeight: '600' },
+  backButtonText: { color: '#1B4D4A', fontSize: 16, fontWeight: '600' },
 });

@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const PREMIUM_LISTING_SESSION_KEY = 'premiumListingSession';
 
@@ -25,6 +27,7 @@ const LISTING_TYPES = [
 ];
 
 export default function PremiumListingLoginScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [listingType, setListingType] = useState('esnaf');
   const [loginKey, setLoginKey] = useState('');
   const [password, setPassword] = useState('');
@@ -46,7 +49,7 @@ export default function PremiumListingLoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!loginKey.trim() || !password) {
-      Alert.alert('Uyarı', 'Telefon veya işletme adı ve şifre girin.');
+      Alert.alert(tx('Uyarı'), 'Telefon veya işletme adı ve şifre girin.');
       return;
     }
     setLoading(true);
@@ -62,7 +65,7 @@ export default function PremiumListingLoginScreen({ navigation }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        Alert.alert('Giriş başarısız', data.error || 'Geçersiz bilgi veya premium değil.');
+        Alert.alert(tx('Giriş başarısız'), data.error || 'Geçersiz bilgi veya premium değil.');
         return;
       }
       const session = {
@@ -75,7 +78,7 @@ export default function PremiumListingLoginScreen({ navigation }) {
       await AsyncStorage.setItem(PREMIUM_LISTING_SESSION_KEY, JSON.stringify(session));
       navigation.replace('PremiumListingMain', session);
     } catch (e) {
-      Alert.alert('Hata', 'Sunucuya bağlanılamadı.');
+      Alert.alert(tx('Hata'), 'Sunucuya bağlanılamadı.');
     } finally {
       setLoading(false);
     }
@@ -85,12 +88,12 @@ export default function PremiumListingLoginScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Premium Liste Girişi</Text>
+          <Text style={styles.title}>{tx('Premium Liste Girişi')}</Text>
           <Text style={styles.hint}>
             Admin tarafından premium işaretlenmiş esnaf, çekici, lastikçi veya taksi hesabıyla kampanya ve iş ilanı yönetin.
           </Text>
 
-          <Text style={styles.label}>Liste türü</Text>
+          <Text style={styles.label}>{tx('Liste türü')}</Text>
           <View style={styles.typeRow}>
             {LISTING_TYPES.map((t) => (
               <TouchableOpacity
@@ -105,21 +108,21 @@ export default function PremiumListingLoginScreen({ navigation }) {
             ))}
           </View>
 
-          <Text style={styles.label}>Telefon veya işletme adı</Text>
+          <Text style={styles.label}>{tx('Telefon veya işletme adı')}</Text>
           <TextInput
             style={styles.input}
             value={loginKey}
             onChangeText={setLoginKey}
-            placeholder="Kayıtlı telefon veya ad"
+            placeholder={tx('Kayıtlı telefon veya ad')}
             autoCapitalize="none"
           />
 
-          <Text style={styles.label}>Premium şifre</Text>
+          <Text style={styles.label}>{tx('Premium şifre')}</Text>
           <TextInput
             style={styles.input}
             value={password}
             onChangeText={setPassword}
-            placeholder="Adminin verdiği şifre"
+            placeholder={tx('Adminin verdiği şifre')}
             secureTextEntry
             autoCapitalize="none"
           />
@@ -129,11 +132,11 @@ export default function PremiumListingLoginScreen({ navigation }) {
             onPress={handleLogin}
             disabled={loading}
           >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnText}>Giriş Yap</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnText}>{tx('Giriş Yap')}</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtnText}>Geri</Text>
+            <Text style={styles.backBtnText}>{tx('Geri')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -144,7 +147,7 @@ export default function PremiumListingLoginScreen({ navigation }) {
 export { PREMIUM_LISTING_SESSION_KEY };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   flex: { flex: 1 },
   content: { padding: 20 },
   spinner: { marginTop: 40 },
@@ -158,7 +161,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#e8e8e8',
   },
-  typeChipActive: { backgroundColor: '#34C759' },
+  typeChipActive: { backgroundColor: '#1B4D4A' },
   typeChipText: { fontSize: 13, color: '#444' },
   typeChipTextActive: { color: '#fff', fontWeight: '600' },
   input: {
@@ -171,7 +174,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   loginBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -180,5 +183,5 @@ const styles = StyleSheet.create({
   loginBtnDisabled: { opacity: 0.7 },
   loginBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   backBtn: { marginTop: 16, alignItems: 'center', padding: 10 },
-  backBtnText: { color: '#34C759', fontSize: 15 },
+  backBtnText: { color: '#1B4D4A', fontSize: 15 },
 });

@@ -12,14 +12,21 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
+import { useLanguage, txNow } from '../i18n/LanguageContext';
+import { attachLanguageToUser } from '../i18n/userLanguageStore';
+
 
 const APP_USER_KEY = 'appUser';
 
-function formatDateLabel(dateStr) {
+function formatDateLabel(dateStr, locale) {
   if (!dateStr) return '—';
   const d = new Date(dateStr + 'T12:00:00');
-  const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()} ${days[d.getDay()]}`;
+  return d.toLocaleDateString(locale === 'en' ? 'en-GB' : 'tr-TR', {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    weekday: 'short',
+  });
 }
 
 const STATUS_LABELS = {
@@ -48,16 +55,18 @@ const YORESEL_AUTO_REJECT_LABEL = 'Zaman aşımı, otomatik reddedilmiştir.';
 function callIsletmePhone(phone) {
   const tel = String(phone || '').replace(/\D/g, '');
   if (!tel) return;
-  Alert.alert('Ara', String(phone), [
-    { text: 'İptal', style: 'cancel' },
+  Alert.alert(txNow('Ara'), String(phone), [
+    { text: txNow('İptal'), style: 'cancel' },
     {
-      text: 'Ara',
-      onPress: () => Linking.openURL(`tel:${tel}`).catch(() => Alert.alert('Hata', 'Arama başlatılamadı')),
+      text: txNow('Ara'),
+      onPress: () => Linking.openURL(`tel:${tel}`).catch(() => Alert.alert(txNow('Hata'), txNow('Arama başlatılamadı'))),
     },
   ]);
 }
 
 export default function ProfileScreen() {
+  const { tx, lang, setLang } = useLanguage();
+  const dateLocale = lang === 'en' ? 'en' : 'tr';
   const [appUser, setAppUser] = useState(null);
   const [reservations, setReservations] = useState([]);
   const [yoreselTalepler, setYoreselTalepler] = useState([]);
@@ -83,36 +92,42 @@ export default function ProfileScreen() {
         setAppUser(null);
         return null;
       }
-      setAppUser(user);
+      const cached = await attachLanguageToUser(user, user.username);
+      await AsyncStorage.setItem(APP_USER_KEY, JSON.stringify(cached));
+      setAppUser(cached);
+      await setLang(cached.language);
       try {
         const res = await fetch(apiUrl(`/api/user/profile?userId=${encodeURIComponent(user.id)}`));
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.user) {
-          const merged = { ...user, ...data.user, rememberMe: user.rememberMe };
+          const merged = await attachLanguageToUser(
+            { ...cached, ...data.user, language: data.user.language || cached.language, rememberMe: cached.rememberMe },
+            cached.username
+          );
           await AsyncStorage.setItem(APP_USER_KEY, JSON.stringify(merged));
           setAppUser(merged);
+          await setLang(merged.language);
           return merged.id;
         }
       } catch {
         // offline: cached user
       }
-      setAppUser(user);
-      return user.id;
+      return cached.id;
     } catch {
       setAppUser(null);
       return null;
     }
-  }, []);
+  }, [setLang]);
 
   const copyMemberId = useCallback(() => {
     const id = appUser?.memberId;
     if (!id) {
-      Alert.alert('Üye numarası yok', 'Giriş yapın veya sayfayı yenileyin.');
+      Alert.alert(tx('Üye numarası yok'), tx('Giriş yapın veya sayfayı yenileyin.'));
       return;
     }
     Clipboard.setString(id);
-    Alert.alert('Kopyalandı', 'Üye numaranız panoya kopyalandı. İşletmede indirim için bu numarayı gösterin.');
-  }, [appUser?.memberId]);
+    Alert.alert(tx('Kopyalandı'), tx('Üye numaranız panoya kopyalandı. İşletmede indirim için bu numarayı gösterin.'));
+  }, [appUser?.memberId, tx]);
 
   const loadReservations = useCallback(async (userId) => {
     if (!userId) {
@@ -158,12 +173,12 @@ export default function ProfileScreen() {
   const cancelReservation = useCallback((reservationId) => {
     if (!appUser?.id) return;
     Alert.alert(
-      'Rezervasyonu iptal et',
-      'Bu rezervasyonu iptal etmek istiyor musunuz?',
+      tx('Rezervasyonu iptal et'),
+      tx('Bu rezervasyonu iptal etmek istiyor musunuz?'),
       [
-        { text: 'Vazgeç', style: 'cancel' },
+        { text: tx('Vazgeç'), style: 'cancel' },
         {
-          text: 'İptal et',
+          text: tx('İptal et'),
           style: 'destructive',
           onPress: async () => {
             setCancellingId(reservationId);
@@ -175,13 +190,13 @@ export default function ProfileScreen() {
               });
               const data = await res.json().catch(() => ({}));
               if (!res.ok) {
-                Alert.alert('Hata', data.error || 'Rezervasyon iptal edilemedi');
+                Alert.alert(tx('Hata'), data.error || tx('Rezervasyon iptal edilemedi'));
                 return;
               }
               await loadReservations(appUser.id);
-              Alert.alert('Başarılı', 'Rezervasyonunuz iptal edildi.');
+              Alert.alert(tx('Başarılı'), tx('Rezervasyonunuz iptal edildi.'));
             } catch (e) {
-              Alert.alert('Hata', 'Bağlantı hatası');
+              Alert.alert(tx('Hata'), tx('Bağlantı hatası'));
             } finally {
               setCancellingId('');
             }
@@ -189,7 +204,7 @@ export default function ProfileScreen() {
         },
       ]
     );
-  }, [appUser, loadReservations]);
+  }, [appUser, loadReservations, tx]);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,7 +242,7 @@ export default function ProfileScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />
+        <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />
       }
     >
       <View style={styles.profileHeader}>
@@ -237,7 +252,7 @@ export default function ProfileScreen() {
           </Text>
         </View>
         <Text style={styles.name}>
-          {appUser ? [appUser.name, appUser.surname].filter(Boolean).join(' ') || 'Kullanıcı' : 'Giriş yapılmadı'}
+          {appUser ? [appUser.name, appUser.surname].filter(Boolean).join(' ') || tx('Kullanıcı') : tx('Giriş yapılmadı')}
         </Text>
         {appUser && appUser.username ? (
           <Text style={styles.username}>@{appUser.username}</Text>
@@ -245,31 +260,32 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Üye numaram</Text>
+        <Text style={styles.sectionTitle}>{tx('Üye numaram')}</Text>
         {appUser?.memberId ? (
           <View style={styles.memberIdCard}>
             <Text style={styles.memberIdValue}>{appUser.memberId}</Text>
             <Text style={styles.memberIdHint}>
-              Bu numara size özeldir. İşletmelerde indirim kontrolü için gösterin veya kopyalayın.
+              {tx('Bu numara size özeldir. İşletmelerde indirim kontrolü için gösterin veya kopyalayın.')}
             </Text>
             <TouchableOpacity style={styles.copyMemberBtn} onPress={copyMemberId} activeOpacity={0.8}>
-              <Text style={styles.copyMemberBtnText}>Numarayı kopyala</Text>
+              <Text style={styles.copyMemberBtnText}>{tx('Numarayı kopyala')}</Text>
             </TouchableOpacity>
           </View>
         ) : appUser ? (
-          <Text style={styles.placeholder}>Üye numarası yükleniyor… Sayfayı aşağı çekerek yenileyin.</Text>
+          <Text style={styles.placeholder}>{tx('Üye numarası yükleniyor… Sayfayı aşağı çekerek yenileyin.')}</Text>
         ) : (
-          <Text style={styles.placeholder}>Giriş yapınca benzersiz üye numaranız burada görünür.</Text>
+          <Text style={styles.placeholder}>{tx('Giriş yapınca benzersiz üye numaranız burada görünür.')}</Text>
         )}
       </View>
 
       {specialDayDiscount ? (
         <View style={styles.section}>
           <View style={styles.specialDayCard}>
-            <Text style={styles.specialDayTitle}>🎉 Bugün özel gününüz!</Text>
+            <Text style={styles.specialDayTitle}>{tx('🎉 Bugün özel gününüz!')}</Text>
             <Text style={styles.specialDayText}>
-              Rezervasyon bölümündeki tüm işletmelerde %{specialDayDiscount.discountPercent || 10} indirim
-              geçerlidir. Üye numaranızı işletmeye gösterin.
+              {tx('Rezervasyon bölümündeki tüm işletmelerde %{percent} indirim geçerlidir. Üye numaranızı işletmeye gösterin.', {
+                percent: specialDayDiscount.discountPercent || 10,
+              })}
             </Text>
           </View>
         </View>
@@ -277,8 +293,8 @@ export default function ProfileScreen() {
 
       {appUser?.memberId && memberDiscounts.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>İndirimlerim</Text>
-          <Text style={styles.sectionHint}>Aktif üye indirimleriniz. İşletmede üye numaranızı gösterin.</Text>
+          <Text style={styles.sectionTitle}>{tx('İndirimlerim')}</Text>
+          <Text style={styles.sectionHint}>{tx('Aktif üye indirimleriniz. İşletmede üye numaranızı gösterin.')}</Text>
           {memberDiscounts.map((d) => (
             <View key={d._id} style={styles.discountCard}>
               {d.businessName ? (
@@ -288,11 +304,11 @@ export default function ProfileScreen() {
                 <Text style={styles.discountTitle}>{d.title}</Text>
               ) : null}
               {d.discountPercent != null ? (
-                <Text style={styles.discountPercent}>%{d.discountPercent} indirim</Text>
+                <Text style={styles.discountPercent}>{tx('%{percent} indirim', { percent: d.discountPercent })}</Text>
               ) : null}
               {d.validUntil ? (
                 <Text style={styles.discountValidUntil}>
-                  Geçerlilik: {formatDateLabel(String(d.validUntil).slice(0, 10))}
+                  {tx('Geçerlilik: {date}', { date: formatDateLabel(String(d.validUntil).slice(0, 10), dateLocale) })}
                 </Text>
               ) : null}
               {d.description ? (
@@ -307,65 +323,70 @@ export default function ProfileScreen() {
       ) : null}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Kullanıcı bilgilerim</Text>
+        <Text style={styles.sectionTitle}>{tx('Kullanıcı bilgilerim')}</Text>
         {appUser ? (
           <View style={styles.infoBlock}>
-            <Text style={styles.infoRow}><Text style={styles.infoLabel}>Ad Soyad: </Text>{[appUser.name, appUser.surname].filter(Boolean).join(' ') || '—'}</Text>
-            <Text style={styles.infoRow}><Text style={styles.infoLabel}>Kullanıcı adı: </Text>{appUser.username || '—'}</Text>
-            <Text style={styles.infoRow}><Text style={styles.infoLabel}>Telefon: </Text>{appUser.phone || '—'}</Text>
+            <Text style={styles.infoRow}><Text style={styles.infoLabel}>{tx('Ad Soyad: ')}</Text>{[appUser.name, appUser.surname].filter(Boolean).join(' ') || '—'}</Text>
+            <Text style={styles.infoRow}><Text style={styles.infoLabel}>{tx('Kullanıcı adı: ')}</Text>{appUser.username || '—'}</Text>
+            <Text style={styles.infoRow}><Text style={styles.infoLabel}>{tx('Telefon')}: </Text>{appUser.phone || '—'}</Text>
+            <Text style={styles.infoRow}>
+              <Text style={styles.infoLabel}>{tx('Uygulama dili')}: </Text>
+              {lang === 'en' ? tx('English') : tx('Türkçe')}
+            </Text>
+            <Text style={styles.placeholder}>{tx('Bu hesap için dil kayıtta seçildi ve değiştirilemez.')}</Text>
           </View>
         ) : (
-          <Text style={styles.placeholder}>Giriş yaparak bilgilerinizi görüntüleyebilirsiniz.</Text>
+          <Text style={styles.placeholder}>{tx('Giriş yaparak bilgilerinizi görüntüleyebilirsiniz.')}</Text>
         )}
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Mevcut rezervasyonlarım</Text>
+        <Text style={styles.sectionTitle}>{tx('Mevcut rezervasyonlarım')}</Text>
 
-        <Text style={styles.subSectionTitle}>Onay bekleyen rezervasyonlarım</Text>
-        <Text style={styles.sectionHint}>Tarih sırasına göre (yakın tarih önce)</Text>
+        <Text style={styles.subSectionTitle}>{tx('Onay bekleyen rezervasyonlarım')}</Text>
+        <Text style={styles.sectionHint}>{tx('Tarih sırasına göre (yakın tarih önce)')}</Text>
         {pendingList.length === 0 ? (
           <Text style={styles.emptyText}>
-            {listsLoading ? 'Yükleniyor…' : 'Onay bekleyen rezervasyonunuz yok.'}
+            {listsLoading ? tx('Yükleniyor…') : tx('Onay bekleyen rezervasyonunuz yok.')}
           </Text>
         ) : (
           pendingList.map((r) => (
             <View key={r._id} style={[styles.resCard, styles.resCardPending]}>
-              <Text style={styles.resBusiness}>{r.business?.businessName || 'İşletme'}</Text>
-              <Text style={styles.resDate}>{formatDateLabel(r.date)} — {r.slot || '—'}</Text>
-              <Text style={[styles.resStatus, styles.status_pending]}>{STATUS_LABELS[r.status] || r.status}</Text>
+              <Text style={styles.resBusiness}>{r.business?.businessName || tx('İşletme')}</Text>
+              <Text style={styles.resDate}>{formatDateLabel(r.date, dateLocale)} — {r.slot || '—'}</Text>
+              <Text style={[styles.resStatus, styles.status_pending]}>{tx(STATUS_LABELS[r.status] || r.status)}</Text>
               <TouchableOpacity
                 style={[styles.cancelBtn, cancellingId === r._id && styles.cancelBtnDisabled]}
                 onPress={() => cancelReservation(r._id)}
                 disabled={cancellingId === r._id}
               >
                 <Text style={styles.cancelBtnText}>
-                  {cancellingId === r._id ? 'İptal ediliyor...' : 'Rezervasyonumu iptal et'}
+                  {cancellingId === r._id ? tx('İptal ediliyor...') : tx('Rezervasyonumu iptal et')}
                 </Text>
               </TouchableOpacity>
             </View>
           ))
         )}
 
-        <Text style={[styles.subSectionTitle, { marginTop: 16 }]}>Onaylanan rezervasyonlarım</Text>
-        <Text style={styles.sectionHint}>Tarih sırasına göre (yakın tarih önce)</Text>
+        <Text style={[styles.subSectionTitle, { marginTop: 16 }]}>{tx('Onaylanan rezervasyonlarım')}</Text>
+        <Text style={styles.sectionHint}>{tx('Tarih sırasına göre (yakın tarih önce)')}</Text>
         {approvedList.length === 0 ? (
           <Text style={styles.emptyText}>
-            {listsLoading ? 'Yükleniyor…' : 'Onaylanan rezervasyonunuz yok.'}
+            {listsLoading ? tx('Yükleniyor…') : tx('Onaylanan rezervasyonunuz yok.')}
           </Text>
         ) : (
           approvedList.map((r) => (
             <View key={r._id} style={styles.resCard}>
-              <Text style={styles.resBusiness}>{r.business?.businessName || 'İşletme'}</Text>
-              <Text style={styles.resDate}>{formatDateLabel(r.date)} — {r.slot || '—'}</Text>
-              <Text style={[styles.resStatus, styles.status_approved]}>{STATUS_LABELS[r.status] || r.status}</Text>
+              <Text style={styles.resBusiness}>{r.business?.businessName || tx('İşletme')}</Text>
+              <Text style={styles.resDate}>{formatDateLabel(r.date, dateLocale)} — {r.slot || '—'}</Text>
+              <Text style={[styles.resStatus, styles.status_approved]}>{tx(STATUS_LABELS[r.status] || r.status)}</Text>
               <TouchableOpacity
                 style={[styles.cancelBtn, cancellingId === r._id && styles.cancelBtnDisabled]}
                 onPress={() => cancelReservation(r._id)}
                 disabled={cancellingId === r._id}
               >
                 <Text style={styles.cancelBtnText}>
-                  {cancellingId === r._id ? 'İptal ediliyor...' : 'Rezervasyonumu iptal et'}
+                  {cancellingId === r._id ? tx('İptal ediliyor...') : tx('Rezervasyonumu iptal et')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -374,33 +395,33 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Yöresel etkinlik taleplerim</Text>
+        <Text style={styles.sectionTitle}>{tx('Yöresel etkinlik taleplerim')}</Text>
         <Text style={styles.sectionHint}>
-          Aynı talepte birden fazla hizmet seçtiyseniz, her işletme kendi onayını verir; durumlar ayrı satırlarda görünür.
+          {tx('Aynı talepte birden fazla hizmet seçtiyseniz, her işletme kendi onayını verir; durumlar ayrı satırlarda görünür.')}
         </Text>
         {!appUser?.id ? (
-          <Text style={styles.emptyText}>Giriş yaparak yöresel taleplerinizi görüntüleyebilirsiniz.</Text>
+          <Text style={styles.emptyText}>{tx('Giriş yaparak yöresel taleplerinizi görüntüleyebilirsiniz.')}</Text>
         ) : yoreselTalepler.length === 0 ? (
           <Text style={styles.emptyText}>
-            {listsLoading ? 'Yükleniyor…' : 'Yöresel etkinlik talebiniz yok.'}
+            {listsLoading ? tx('Yükleniyor…') : tx('Yöresel etkinlik talebiniz yok.')}
           </Text>
         ) : (
           yoreselTalepler.map((t) => (
             <View key={t._id} style={styles.yoreselCard}>
               <Text style={styles.yoreselCardTitle}>
-                {t.eventTypeLabel || t.eventType} · {formatDateLabel(t.date)}
+                {tx(t.eventTypeLabel || t.eventType)} · {formatDateLabel(t.date, dateLocale)}
               </Text>
               <Text style={styles.yoreselAgg}>
-                Talep özeti:{' '}
-                {t.aggregateStatusLabel
+                {tx('Talep özeti:')}{' '}
+                {tx(t.aggregateStatusLabel
                   || YORESEL_AGG_LABELS[t.aggregateStatus]
-                  || t.aggregateStatus}
+                  || t.aggregateStatus)}
               </Text>
               {(t.serviceLines || []).map((line) => (
                 <View key={`${t._id}-${line.serviceKey}`} style={styles.yoreselLine}>
                   <Text style={styles.yoreselLineMain}>
-                    {line.label}: {line.isletmeName}
-                    {line.timeSlotLabel ? ` · ${line.timeSlotLabel}` : ''}
+                    {tx(line.label)}: {line.isletmeName}
+                    {line.timeSlotLabel ? ` · ${tx(line.timeSlotLabel)}` : ''}
                   </Text>
                   {line.isletmePhone ? (
                     <TouchableOpacity
@@ -419,10 +440,10 @@ export default function ProfileScreen() {
                       line.autoRejected && styles.status_autoRejected,
                     ]}
                   >
-                    {line.statusLabel
+                    {tx(line.statusLabel
                       || (line.autoRejected ? YORESEL_AUTO_REJECT_LABEL : null)
                       || YORESEL_LINE_STATUS[line.status]
-                      || line.status}
+                      || line.status)}
                   </Text>
                 </View>
               ))}
@@ -432,18 +453,18 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Geçmiş rezervasyonlarım</Text>
-        <Text style={styles.sectionHint}>Tarih sırasına göre (yeniden eskiye)</Text>
+        <Text style={styles.sectionTitle}>{tx('Geçmiş rezervasyonlarım')}</Text>
+        <Text style={styles.sectionHint}>{tx('Tarih sırasına göre (yeniden eskiye)')}</Text>
         {pastList.length === 0 ? (
           <Text style={styles.emptyText}>
-            {listsLoading ? 'Yükleniyor…' : 'Geçmiş rezervasyonunuz yok.'}
+            {listsLoading ? tx('Yükleniyor…') : tx('Geçmiş rezervasyonunuz yok.')}
           </Text>
         ) : (
           pastList.map((r) => (
             <View key={r._id} style={[styles.resCard, styles.resCardPast]}>
-              <Text style={styles.resBusiness}>{r.business?.businessName || 'İşletme'}</Text>
-              <Text style={styles.resDate}>{formatDateLabel(r.date)} — {r.slot || '—'}</Text>
-              <Text style={[styles.resStatus, styles[`status_${r.status}`]]}>{STATUS_LABELS[r.status] || r.status}</Text>
+              <Text style={styles.resBusiness}>{r.business?.businessName || tx('İşletme')}</Text>
+              <Text style={styles.resDate}>{formatDateLabel(r.date, dateLocale)} — {r.slot || '—'}</Text>
+              <Text style={[styles.resStatus, styles[`status_${r.status}`]]}>{tx(STATUS_LABELS[r.status] || r.status)}</Text>
             </View>
           ))
         )}
@@ -455,7 +476,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F1EB',
   },
   content: {
     padding: 20,
@@ -464,13 +485,13 @@ const styles = StyleSheet.create({
   profileHeader: {
     alignItems: 'center',
     marginBottom: 24,
-    paddingTop: 12,
+    paddingTop: 56,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -539,7 +560,7 @@ const styles = StyleSheet.create({
   },
   copyMemberBtn: {
     alignSelf: 'center',
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,
@@ -554,7 +575,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
   },
   specialDayTitle: {
     fontSize: 16,
@@ -634,12 +655,12 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   resCard: {
-    backgroundColor: '#f0f9f2',
+    backgroundColor: '#E6F0EF',
     padding: 14,
     borderRadius: 10,
     marginBottom: 10,
     borderLeftWidth: 4,
-    borderLeftColor: '#34C759',
+    borderLeftColor: '#1B4D4A',
   },
   resCardPending: {
     borderLeftColor: '#e67e22',
@@ -665,7 +686,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   status_pending: { color: '#e67e22' },
-  status_approved: { color: '#34C759' },
+  status_approved: { color: '#1B4D4A' },
   status_rejected: { color: '#c0392b' },
   status_autoRejected: { color: '#7f8c8d', fontStyle: 'italic' },
   status_completed: { color: '#27ae60' },

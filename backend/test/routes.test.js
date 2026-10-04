@@ -8,6 +8,8 @@ const User = require('../models/User');
 const Business = require('../models/Business');
 const Reservation = require('../models/Reservation');
 const YoreselEtkinlikTalep = require('../models/YoreselEtkinlikTalep');
+const AppSettings = require('../models/AppSettings');
+const Payment = require('../models/Payment');
 
 const app = require('../server');
 
@@ -21,6 +23,8 @@ const ORIGINALS = {
   reservationCount: Reservation.countDocuments,
   yoreselFind: YoreselEtkinlikTalep.find,
   yoreselCount: YoreselEtkinlikTalep.countDocuments,
+  appSettingsFindOne: AppSettings.findOne,
+  paymentFindOne: Payment.findOne,
 };
 
 const validRegister = {
@@ -38,6 +42,20 @@ function setReadyState(value) {
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
     get: () => value,
+  });
+}
+
+function mockAppSettingsFee(fee) {
+  AppSettings.findOne = () => ({
+    lean: async () => ({ yoreselReservationFee: fee }),
+  });
+}
+
+function mockNoPaidYoreselCredit() {
+  Payment.findOne = () => ({
+    sort: () => ({
+      lean: async () => null,
+    }),
   });
 }
 
@@ -87,6 +105,7 @@ async function post(path, body) {
 before(() => {
   setReadyState(1);
   YoreselEtkinlikTalep.find = async () => [];
+  mockAppSettingsFee(0);
 });
 
 after(() => {
@@ -96,6 +115,8 @@ after(() => {
   Reservation.countDocuments = ORIGINALS.reservationCount;
   YoreselEtkinlikTalep.find = ORIGINALS.yoreselFind;
   YoreselEtkinlikTalep.countDocuments = ORIGINALS.yoreselCount;
+  AppSettings.findOne = ORIGINALS.appSettingsFindOne;
+  Payment.findOne = ORIGINALS.paymentFindOne;
 });
 
 test('POST /api/register returns 400 without KVKK consent', async () => {
@@ -203,4 +224,32 @@ test('POST /api/yoresel-etkinlik/talep returns 429 at 3 in 30 days', async () =>
   });
   assert.equal(res.status, 429);
   assert.equal(res.body.code, 'PERIOD_LIMIT');
+});
+
+test('POST /api/yoresel-etkinlik/talep returns 402 without paid reservation fee', async () => {
+  mockMemberUser();
+  mockAppSettingsFee(150);
+  mockNoPaidYoreselCredit();
+  YoreselEtkinlikTalep.countDocuments = async () => 0;
+  const res = await post('/api/yoresel-etkinlik/talep', {
+    date: '2026-09-23',
+    eventType: 'dugun',
+    services: { muzisyen: true },
+    userId: USER_ID,
+  });
+  assert.equal(res.status, 402);
+  assert.equal(res.body.code, 'PAYMENT_REQUIRED');
+  mockAppSettingsFee(0);
+});
+
+test('POST /api/payments/yoresel/init returns 503 when iyzico is not configured', async () => {
+  mockMemberUser();
+  mockAppSettingsFee(150);
+  mockNoPaidYoreselCredit();
+  delete process.env.IYZICO_API_KEY;
+  delete process.env.IYZICO_SECRET_KEY;
+  const res = await post('/api/payments/yoresel/init', { userId: USER_ID });
+  assert.equal(res.status, 503);
+  assert.equal(res.body.code, 'PAYMENT_NOT_CONFIGURED');
+  mockAppSettingsFee(0);
 });

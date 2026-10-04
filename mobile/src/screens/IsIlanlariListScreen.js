@@ -15,10 +15,13 @@ import { apiUrl } from '../config/api';
 import { getProvinces, getDistrictsForProvince, getNeighborhoods, DEFAULT_CITY } from '../services/turkeyAddressService';
 import { buildListAddressQueryParams } from '../utils/listAddressQueryParams';
 import { useUserDefaultDistrict } from '../hooks/useUserDefaultDistrict';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const MUGLA_DISTRICTS_FALLBACK = ['Bodrum', 'Dalaman', 'Datça', 'Fethiye', 'Kavaklıdere', 'Köyceğiz', 'Marmaris', 'Menteşe', 'Milas', 'Ortaca', 'Seydikemer', 'Ula', 'Yatağan'];
 
 export default function IsIlanlariListScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -106,26 +109,26 @@ export default function IsIlanlariListScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Geri</Text>
+          <Text style={styles.backText}>← {tx('Geri')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>İş ilanları</Text>
-        <Text style={styles.subtitle}>İlçe ve mahalleye göre filtreleyin</Text>
+        <Text style={styles.title}>{tx('İş ilanları')}</Text>
+        <Text style={styles.subtitle}>{tx('İlçe ve mahalleye göre filtreleyin')}</Text>
       </View>
 
       <View style={styles.filterSection}>
-        <Text style={styles.filterTitle}>Filtre</Text>
-        <Text style={styles.filterLabel}>İlçe</Text>
+        <Text style={styles.filterTitle}>{tx('Filtre')}</Text>
+        <Text style={styles.filterLabel}>{tx('İlçe')}</Text>
         <TouchableOpacity style={styles.selectTouch} onPress={() => setDistrictModal(true)}>
-          <Text style={[styles.selectText, !district && styles.selectPlaceholder]}>{district || 'Tümü'}</Text>
+          <Text style={[styles.selectText, !district && styles.selectPlaceholder]}>{district || tx('Tümü')}</Text>
           <Text style={styles.selectArrow}>▼</Text>
         </TouchableOpacity>
-        <Text style={styles.filterLabel}>Mahalle</Text>
+        <Text style={styles.filterLabel}>{tx('Mahalle')}</Text>
         <TouchableOpacity style={styles.selectTouch} onPress={() => district && setNeighborhoodModal(true)} disabled={!district}>
-          <Text style={[styles.selectText, !neighborhood && styles.selectPlaceholder]}>{neighborhood || 'Tümü'}</Text>
+          <Text style={[styles.selectText, !neighborhood && styles.selectPlaceholder]}>{neighborhood || tx('Tümü')}</Text>
           <Text style={styles.selectArrow}>▼</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.filterBtn} onPress={loadList} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.filterBtnText}>Listele</Text>}
+          {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.filterBtnText}>{tx('Listele')}</Text>}
         </TouchableOpacity>
       </View>
 
@@ -157,15 +160,15 @@ export default function IsIlanlariListScreen({ navigation }) {
                   activeOpacity={0.9}
                 >
                   <Image source={{ uri: apiUrl(item.imageUrl) }} style={styles.cardThumb} resizeMode="cover" />
-                  <Text style={styles.cardImageHint}>Büyüt</Text>
+                  <Text style={styles.cardImageHint}>{tx('Büyüt')}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
           </View>
         )}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />}
-        ListEmptyComponent={!loading ? <Text style={styles.emptyText}>Bu filtreye uygun iş ilanı yok.</Text> : null}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />}
+        ListEmptyComponent={!loading ? <Text style={styles.emptyText}>{tx('Bu filtreye uygun iş ilanı yok.')}</Text> : null}
       />
 
       <Modal visible={!!imageModalUri} transparent animationType="fade" onRequestClose={() => setImageModalUri(null)}>
@@ -175,7 +178,7 @@ export default function IsIlanlariListScreen({ navigation }) {
               <Image source={{ uri: imageModalUri }} style={styles.imageModalImage} resizeMode="contain" />
             ) : null}
             <TouchableOpacity style={styles.imageModalCloseBtn} onPress={() => setImageModalUri(null)}>
-              <Text style={styles.imageModalCloseText}>Kapat</Text>
+              <Text style={styles.imageModalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -184,9 +187,9 @@ export default function IsIlanlariListScreen({ navigation }) {
       <Modal visible={districtModal} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDistrictModal(false)}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>İlçe seçin</Text>
+            <Text style={styles.modalTitle}>{tx('İlçe seçin')}</Text>
             <TouchableOpacity style={styles.modalItem} onPress={() => { setDistrict(''); setNeighborhood(''); setDistrictModal(false); }}>
-              <Text style={styles.modalItemText}>Tümü</Text>
+              <Text style={styles.modalItemText}>{tx('Tümü')}</Text>
             </TouchableOpacity>
             <ScrollView style={styles.modalScroll}>
               {districts.map((d) => (
@@ -195,7 +198,7 @@ export default function IsIlanlariListScreen({ navigation }) {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setDistrictModal(false)}><Text style={styles.modalCloseText}>Kapat</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setDistrictModal(false)}><Text style={styles.modalCloseText}>{tx('Kapat')}</Text></TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -203,9 +206,9 @@ export default function IsIlanlariListScreen({ navigation }) {
       <Modal visible={neighborhoodModal} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setNeighborhoodModal(false)}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Mahalle seçin</Text>
+            <Text style={styles.modalTitle}>{tx('Mahalle seçin')}</Text>
             <TouchableOpacity style={styles.modalItem} onPress={() => { setNeighborhood(''); setNeighborhoodModal(false); }}>
-              <Text style={styles.modalItemText}>Tümü</Text>
+              <Text style={styles.modalItemText}>{tx('Tümü')}</Text>
             </TouchableOpacity>
             <ScrollView style={styles.modalScroll}>
               {neighborhoods.map((n) => (
@@ -214,7 +217,7 @@ export default function IsIlanlariListScreen({ navigation }) {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setNeighborhoodModal(false)}><Text style={styles.modalCloseText}>Kapat</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setNeighborhoodModal(false)}><Text style={styles.modalCloseText}>{tx('Kapat')}</Text></TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -223,8 +226,8 @@ export default function IsIlanlariListScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { backgroundColor: '#34C759', paddingTop: 56, paddingBottom: 20, paddingHorizontal: 20 },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
+  header: { backgroundColor: '#1B4D4A', paddingTop: 56, paddingBottom: 20, paddingHorizontal: 20 },
   backBtn: { position: 'absolute', top: 52, left: 16, padding: 8, zIndex: 1 },
   backText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   title: { fontSize: 22, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
@@ -232,11 +235,11 @@ const styles = StyleSheet.create({
   filterSection: { backgroundColor: '#fff', padding: 16, marginHorizontal: 16, marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e8e8e8' },
   filterTitle: { fontSize: 16, fontWeight: '700', color: '#333', marginBottom: 12 },
   filterLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginTop: 10, marginBottom: 6 },
-  selectTouch: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 10, padding: 12 },
+  selectTouch: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F4F1EB', borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 10, padding: 12 },
   selectText: { fontSize: 15, color: '#333' },
   selectPlaceholder: { color: '#888' },
   selectArrow: { fontSize: 12, color: '#666' },
-  filterBtn: { marginTop: 16, backgroundColor: '#34C759', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  filterBtn: { marginTop: 16, backgroundColor: '#1B4D4A', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   filterBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   listContent: { padding: 16, paddingBottom: 40 },
   emptyText: { textAlign: 'center', color: '#666', marginTop: 24, paddingHorizontal: 20 },
@@ -245,14 +248,14 @@ const styles = StyleSheet.create({
   cardTextBlock: { flex: 1, minWidth: 0 },
   cardImageWrap: { alignItems: 'center' },
   cardThumb: { width: 80, height: 80, borderRadius: 8, backgroundColor: '#eee' },
-  cardImageHint: { fontSize: 10, color: '#34C759', marginTop: 4 },
+  cardImageHint: { fontSize: 10, color: '#1B4D4A', marginTop: 4 },
   imageModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 16 },
   imageModalInner: { width: '100%', alignItems: 'center' },
   imageModalImage: { width: '100%', height: 400 },
-  imageModalCloseBtn: { marginTop: 16, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#34C759', borderRadius: 10 },
+  imageModalCloseBtn: { marginTop: 16, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#1B4D4A', borderRadius: 10 },
   imageModalCloseText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   titleText: { fontSize: 17, fontWeight: '700', color: '#333', marginBottom: 4 },
-  company: { fontSize: 14, color: '#34C759', fontWeight: '600', marginBottom: 6 },
+  company: { fontSize: 14, color: '#1B4D4A', fontWeight: '600', marginBottom: 6 },
   description: { fontSize: 13, color: '#666', marginBottom: 6 },
   address: { fontSize: 12, color: '#888', marginBottom: 2 },
   contact: { fontSize: 12, color: '#555', marginTop: 4 },
@@ -263,5 +266,5 @@ const styles = StyleSheet.create({
   modalItem: { padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
   modalItemText: { fontSize: 16, color: '#333' },
   modalClose: { padding: 16, alignItems: 'center' },
-  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#34C759' },
+  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
 });

@@ -2,8 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { apiUrl } from '../config/api';
 import { listingGalleryItems } from '../utils/listingMedia';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 export default function ListingCardMedia({ item, onOpenGallery, imageWrapStyle, thumbStyle }) {
+  const { tx } = useLanguage();
   const galleryItems = listingGalleryItems(item);
   if (!galleryItems.length) return null;
 

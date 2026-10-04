@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 import {
   Modal,
   View,
@@ -22,6 +23,7 @@ export default function ListingMediaGalleryModal({
   initialIndex = 0,
   onClose,
 }) {
+  const { tx } = useLanguage();
   const scrollRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
@@ -40,7 +42,7 @@ export default function ListingMediaGalleryModal({
   }, [visible, initialIndex, slides.length]);
 
   const openPdf = (url) => {
-    Linking.openURL(url).catch(() => Alert.alert('Hata', 'PDF açılamadı.'));
+    Linking.openURL(url).catch(() => Alert.alert(tx('Hata'), 'PDF açılamadı.'));
   };
 
   const onScrollEnd = (e) => {
@@ -93,7 +95,7 @@ export default function ListingMediaGalleryModal({
             ))}
           </ScrollView>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-            <Text style={styles.closeBtnText}>Kapat</Text>
+            <Text style={styles.closeBtnText}>{tx('Kapat')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import MapListingPin from './MapListingPin';
 import { itemsWithMapCoordinates, googleMapsQueryForItem, districtMapRegion } from '../utils/mapCoordinates';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 function loadMapLibraries() {
   const maps = require('react-native-maps');
@@ -75,6 +77,7 @@ export default function ListMapView({
   emptyHint = 'Haritada gösterilecek konumlu kayıt yok. İlçe/mahalle veya Google Haritalar linki girin.',
   noCoordsHint = 'Bu kayıtlar için konum bulunamadı. Admin panelinde ilçe/mahalle bilgisi girin.',
 }) {
+  const { tx } = useLanguage();
   const mapRef = useRef(null);
   const [mapLib, setMapLib] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -92,29 +95,29 @@ export default function ListMapView({
         ? getPinAppearance(entry.item)
         : {
           shape: 'circle',
-          color: getPinColor ? getPinColor(entry.item) : '#34C759',
+          color: getPinColor ? getPinColor(entry.item) : '#1B4D4A',
           icon: null,
           label: getMarkerSubtitle ? getMarkerSubtitle(entry.item) : '',
         };
       return {
         ...entry,
         id: getItemId(entry.item),
-        title: getItemTitle(entry.item) || 'Kayıt',
+        title: getItemTitle(entry.item) || tx('Kayıt'),
         phone: getItemPhone ? getItemPhone(entry.item) : '',
-        subtitle: getMarkerSubtitle ? getMarkerSubtitle(entry.item) : appearance.label || '',
+        subtitle: getMarkerSubtitle ? tx(getMarkerSubtitle(entry.item) || '') : tx(appearance.label || ''),
         pinColor: appearance.color,
         pinShape: appearance.shape || 'circle',
         pinIcon: appearance.icon || null,
-        pinLabel: appearance.label || '',
+        pinLabel: appearance.label ? tx(appearance.label) : '',
       };
     });
-  }, [items, getItemId, getItemTitle, getItemPhone, getPinColor, getPinAppearance, getMarkerSubtitle]);
+  }, [items, getItemId, getItemTitle, getItemPhone, getPinColor, getPinAppearance, getMarkerSubtitle, tx]);
 
   const resolvedLegend = useMemo(() => {
     if (Array.isArray(legendItems) && legendItems.length > 0) return legendItems;
     const seen = new Map();
     markers.forEach((m) => {
-      const label = m.pinLabel || m.subtitle || 'Diğer';
+      const label = m.pinLabel || m.subtitle || tx('Diğer');
       const key = `${m.pinShape}-${m.pinColor}-${label}`;
       if (!seen.has(key)) {
         seen.set(key, {
@@ -126,10 +129,10 @@ export default function ListMapView({
       }
     });
     if (seen.size === 0 && !getPinAppearance && !getPinColor) {
-      return [{ color: '#34C759', shape: 'circle', label: 'İşletme' }];
+      return [{ color: '#1B4D4A', shape: 'circle', label: tx('İşletme') }];
     }
     return Array.from(seen.values());
-  }, [legendItems, getPinAppearance, getPinColor, markers]);
+  }, [legendItems, getPinAppearance, getPinColor, markers, tx]);
 
   const loadUserLocation = useCallback(async () => {
     const Location = mapLib?.Location;
@@ -208,23 +211,23 @@ export default function ListMapView({
       onPress: () => {
         const target = googleMapsQueryForItem(marker.item, marker);
         if (!target) {
-          Alert.alert('Hata', 'Harita açılamadı');
+          Alert.alert(tx('Hata'), 'Harita açılamadı');
           return;
         }
         const url = target.type === 'url'
           ? target.value
           : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(target.value)}`;
-        Linking.openURL(url).catch(() => Alert.alert('Hata', 'Harita açılamadı'));
+        Linking.openURL(url).catch(() => Alert.alert(tx('Hata'), 'Harita açılamadı'));
       },
     });
     const message = [marker.subtitle, marker.phone ? `📞 ${marker.phone}` : ''].filter(Boolean).join('\n');
-    Alert.alert(marker.title, message || 'Konum', actions);
+    Alert.alert(marker.title, message || tx('Konum'), actions);
   };
 
   if (markers.length === 0 && items.length === 0 && locationStatus !== 'loading') {
     return (
       <View style={styles.emptyWrap}>
-        <Text style={styles.emptyText}>{emptyHint}</Text>
+        <Text style={styles.emptyText}>{tx(emptyHint)}</Text>
       </View>
     );
   }
@@ -232,7 +235,7 @@ export default function ListMapView({
   if (markers.length === 0 && items.length > 0 && locationStatus !== 'loading') {
     return (
       <View style={styles.emptyWrap}>
-        <Text style={styles.emptyText}>{noCoordsHint}</Text>
+        <Text style={styles.emptyText}>{tx(noCoordsHint)}</Text>
       </View>
     );
   }
@@ -241,8 +244,8 @@ export default function ListMapView({
     return (
       <View style={styles.wrap}>
         <View style={styles.mapPlaceholder}>
-          <ActivityIndicator color="#34C759" />
-          <Text style={styles.mapPlaceholderText}>Harita hazırlanıyor…</Text>
+          <ActivityIndicator color="#1B4D4A" />
+          <Text style={styles.mapPlaceholderText}>{tx('Harita hazırlanıyor…')}</Text>
         </View>
       </View>
     );
@@ -295,25 +298,25 @@ export default function ListMapView({
 
       <View style={styles.legend}>
         <Text style={styles.legendText}>
-          {markers.length} konum · Mavi nokta: siz
-          {locationStatus === 'loading' ? ' · Konum alınıyor…' : ''}
+          {tx('{count} konum · Mavi nokta: siz', { count: markers.length })}
+          {locationStatus === 'loading' ? tx(' · Konum alınıyor…') : ''}
         </Text>
         {resolvedLegend.length > 0 ? (
           <View style={styles.legendRow}>
             {resolvedLegend.map((leg) => (
               <View key={`${leg.shape}-${leg.color}-${leg.label}`} style={styles.legendItem}>
                 <MapListingPin color={leg.color} shape={leg.shape || 'circle'} icon={leg.icon} size={12} />
-                <Text style={styles.legendItemText}>{leg.label}</Text>
+                <Text style={styles.legendItemText}>{tx(leg.label)}</Text>
               </View>
             ))}
           </View>
         ) : null}
-        <Text style={styles.legendHint}>Pine dokunun: ara veya Google Haritalar</Text>
+        <Text style={styles.legendHint}>{tx('Pine dokunun: ara veya Google Haritalar')}</Text>
       </View>
 
       {locationStatus === 'loading' ? (
         <View style={styles.locLoading}>
-          <ActivityIndicator size="small" color="#34C759" />
+          <ActivityIndicator size="small" color="#1B4D4A" />
         </View>
       ) : null}
     </View>
@@ -328,7 +331,7 @@ const styles = StyleSheet.create({
     minHeight: 240,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f0f9f2',
+    backgroundColor: '#E6F0EF',
   },
   mapPlaceholderText: { marginTop: 8, fontSize: 13, color: '#555' },
   zoomCol: {
@@ -381,7 +384,7 @@ const styles = StyleSheet.create({
     minHeight: 200,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#f0f9f2',
+    backgroundColor: '#E6F0EF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#cfe8d4',

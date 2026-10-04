@@ -10,6 +10,8 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { apiUrl } from '../config/api';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 function SectionHeader({ label, count, expanded, onPress, level }) {
   const indent = level * 14;
@@ -31,6 +33,7 @@ function SectionHeader({ label, count, expanded, onPress, level }) {
 }
 
 export default function AdminUsersByAddressScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [tree, setTree] = useState([]);
   const [summary, setSummary] = useState({ cityCount: 0, districtCount: 0, neighborhoodCount: 0 });
   const [totalUsers, setTotalUsers] = useState(0);
@@ -111,7 +114,7 @@ export default function AdminUsersByAddressScreen({ navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#34C759" />
+        <ActivityIndicator size="large" color="#1B4D4A" />
       </SafeAreaView>
     );
   }
@@ -122,7 +125,7 @@ export default function AdminUsersByAddressScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>← Admin</Text>
         </TouchableOpacity>
-        <Text style={styles.toolbarTitle}>Kullanıcı adresleri</Text>
+        <Text style={styles.toolbarTitle}>{tx('Kullanıcı adresleri')}</Text>
         <View style={styles.toolbarSpacer} />
       </View>
 
@@ -137,11 +140,11 @@ export default function AdminUsersByAddressScreen({ navigation }) {
         </View>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryValue}>{summary.districtCount}</Text>
-          <Text style={styles.summaryLabel}>İlçe</Text>
+          <Text style={styles.summaryLabel}>{tx('İlçe')}</Text>
         </View>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryValue}>{summary.neighborhoodCount}</Text>
-          <Text style={styles.summaryLabel}>Mahalle</Text>
+          <Text style={styles.summaryLabel}>{tx('Mahalle')}</Text>
         </View>
       </View>
 
@@ -166,7 +169,7 @@ export default function AdminUsersByAddressScreen({ navigation }) {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#34C759']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1B4D4A']} />}
       >
         {tree.length === 0 ? (
           <Text style={styles.emptyText}>Kayıtlı kullanıcı yok.</Text>
@@ -242,8 +245,8 @@ export default function AdminUsersByAddressScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F1EB' },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -254,7 +257,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e8e8e8',
   },
   backBtn: { paddingVertical: 4, paddingRight: 12 },
-  backBtnText: { fontSize: 16, color: '#34C759', fontWeight: '600' },
+  backBtnText: { fontSize: 16, color: '#1B4D4A', fontWeight: '600' },
   toolbarTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#222', textAlign: 'center' },
   toolbarSpacer: { width: 72 },
   summaryRow: {
@@ -295,7 +298,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
   },
   actionChipText: { fontSize: 13, fontWeight: '600', color: '#2e7d32' },
   errorBox: {
@@ -307,7 +310,7 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#c62828', fontSize: 14 },
   retryBtn: { marginTop: 8, alignSelf: 'flex-start' },
-  retryBtnText: { color: '#34C759', fontWeight: '600' },
+  retryBtnText: { color: '#1B4D4A', fontWeight: '600' },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 12, paddingBottom: 24 },
   emptyText: { textAlign: 'center', color: '#888', marginTop: 24, fontSize: 15 },
@@ -335,7 +338,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     alignItems: 'center',
   },
   countBadgeText: { color: '#fff', fontSize: 13, fontWeight: '700' },

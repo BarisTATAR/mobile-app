@@ -13,8 +13,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { apiUrl, apiFetch } from '../config/api';
 import ListingMediaGalleryModal from './ListingMediaGalleryModal';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 export default function ListingMediaFormField({ value = [], onChange, label = 'Fotoğraf / PDF' }) {
+  const { tx } = useLanguage();
   const [pdfUploading, setPdfUploading] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [galleryVisible, setGalleryVisible] = useState(false);
@@ -40,7 +43,7 @@ export default function ListingMediaFormField({ value = [], onChange, label = 'F
   };
 
   const removeAt = (index) => {
-    Alert.alert('Kaldır', 'Bu dosya listeden kaldırılacak. Kaydet ile uygulanır.', [
+    Alert.alert(tx('Kaldır'), 'Bu dosya listeden kaldırılacak. Kaydet ile uygulanır.', [
       { text: 'İptal', style: 'cancel' },
       {
         text: 'Kaldır',
@@ -64,7 +67,7 @@ export default function ListingMediaFormField({ value = [], onChange, label = 'F
       if (doc.canceled) return;
       const asset = doc.assets?.[0];
       if (!asset?.uri) {
-        Alert.alert('Hata', 'PDF dosyası seçilemedi.');
+        Alert.alert(tx('Hata'), 'PDF dosyası seçilemedi.');
         return;
       }
       setPdfUploading(true);
@@ -79,10 +82,10 @@ export default function ListingMediaFormField({ value = [], onChange, label = 'F
       if (res.ok && data.url) {
         appendFile({ type: 'pdf', url: data.url, name: '' });
       } else {
-        Alert.alert('Hata', data.error || 'PDF yüklenemedi');
+        Alert.alert(tx('Hata'), data.error || 'PDF yüklenemedi');
       }
     } catch (e) {
-      Alert.alert('Hata', 'PDF seçilemedi veya yüklenemedi');
+      Alert.alert(tx('Hata'), 'PDF seçilemedi veya yüklenemedi');
     } finally {
       setPdfUploading(false);
     }
@@ -92,7 +95,7 @@ export default function ListingMediaFormField({ value = [], onChange, label = 'F
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('İzin', 'Galeri erişimi gerekli.');
+        Alert.alert(tx('İzin'), 'Galeri erişimi gerekli.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -114,10 +117,10 @@ export default function ListingMediaFormField({ value = [], onChange, label = 'F
       if (res.ok && data.url) {
         appendFile({ type: 'image', url: data.url, name: '' });
       } else {
-        Alert.alert('Hata', data.error || 'Yüklenemedi');
+        Alert.alert(tx('Hata'), data.error || 'Yüklenemedi');
       }
     } catch (e) {
-      Alert.alert('Hata', 'Dosya yüklenemedi');
+      Alert.alert(tx('Hata'), 'Dosya yüklenemedi');
     } finally {
       setImageUploading(false);
     }
@@ -177,7 +180,7 @@ export default function ListingMediaFormField({ value = [], onChange, label = 'F
         disabled={pdfUploading}
       >
         {pdfUploading ? (
-          <ActivityIndicator color="#34C759" size="small" />
+          <ActivityIndicator color="#1B4D4A" size="small" />
         ) : (
           <Text style={[styles.uploadBtnText, styles.uploadBtnTextSecondary]}>PDF ekle</Text>
         )}
@@ -223,15 +226,15 @@ const styles = StyleSheet.create({
   },
   removeIconText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   uploadBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
     marginBottom: 8,
     marginTop: 8,
   },
-  uploadBtnSecondary: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#34C759' },
+  uploadBtnSecondary: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#1B4D4A' },
   uploadBtnDisabled: { opacity: 0.7 },
   uploadBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  uploadBtnTextSecondary: { color: '#34C759' },
+  uploadBtnTextSecondary: { color: '#1B4D4A' },
 });

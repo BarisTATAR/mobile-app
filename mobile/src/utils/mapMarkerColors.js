@@ -27,7 +27,7 @@ export function businessActivityMeta(activityId) {
     id,
     label: id,
     icon: '🏪',
-    color: '#34C759',
+    color: '#1B4D4A',
     shape: 'circle',
   };
 }
@@ -38,7 +38,7 @@ export function businessActivityIcon(activityId) {
 
 export function pinColorForBusiness(item) {
   const meta = businessActivityMeta(item?.activityField);
-  return meta?.color || '#34C759';
+  return meta?.color || '#1B4D4A';
 }
 
 export function businessActivityLabel(item) {
@@ -65,7 +65,7 @@ export const ESNAF_CATEGORIES = [
   { id: 'Müzisyen', label: 'Müzisyen', icon: '🎵', color: '#AB47BC', shape: 'diamond' },
   { id: 'Aşçı', label: 'Aşçı', icon: '🍳', color: '#FB8C00', shape: 'circle' },
   { id: 'Kuyumcu', label: 'Kuyumcu', icon: '💎', color: '#FFB300', shape: 'diamond' },
-  { id: 'Diğer', label: 'Diğer', icon: '🏪', color: '#34C759', shape: 'circle' },
+  { id: 'Diğer', label: 'Diğer', icon: '🏪', color: '#1B4D4A', shape: 'circle' },
 ];
 
 export const ESNAF_CATEGORY_FILTER_OPTIONS = [
@@ -82,14 +82,14 @@ export function esnafCategoryMeta(categoryId) {
     id,
     label: id,
     icon: '🏪',
-    color: '#34C759',
+    color: '#1B4D4A',
     shape: 'circle',
   };
 }
 
 export function pinColorForEsnaf(item) {
   const meta = esnafCategoryMeta(item?.category);
-  return meta?.color || '#34C759';
+  return meta?.color || '#1B4D4A';
 }
 
 export function esnafCategoryLabel(item) {
@@ -101,7 +101,7 @@ export function esnafCategoryIcon(categoryId) {
 }
 
 export function pinColorForListing(item) {
-  return '#34C759';
+  return '#1B4D4A';
 }
 
 const LISTING_TYPE_APPEARANCE = {
@@ -123,7 +123,7 @@ export function pinAppearanceForEsnaf(item) {
   const cat = String(item?.category || '').trim();
   const meta = esnafCategoryMeta(cat);
   if (!meta) {
-    return { shape: 'circle', color: '#34C759', icon: '🏪', label: 'Esnaf' };
+    return { shape: 'circle', color: '#1B4D4A', icon: '🏪', label: 'Esnaf' };
   }
   return {
     shape: meta.shape,
@@ -148,7 +148,7 @@ export function pinAppearanceForLastikci(item) {
 export function pinAppearanceForBusiness(item) {
   const meta = businessActivityMeta(item?.activityField);
   if (!meta) {
-    return { shape: 'circle', color: '#34C759', icon: '🏪', label: 'İşletme' };
+    return { shape: 'circle', color: '#1B4D4A', icon: '🏪', label: 'İşletme' };
   }
   return {
     shape: meta.shape,

@@ -7,46 +7,58 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import AnimatedSectionIcon from '../components/AnimatedSectionIcon';
 import { warmupAfterFirstPaint } from '../services/appWarmup';
+import { colors, shadow } from '../theme';
+import { useLanguage } from '../i18n/LanguageContext';
 
 // 1. grup: Duyurular
 const DUYURULAR_GRUP = [
-  { id: 'duyurular', label: 'Duyurular', emoji: '📢' },
-  { id: 'kampanyalar', label: 'Kampanyalar/İndirimler', emoji: '🏷️' },
+  { id: 'duyurular', label: 'Duyurular', emoji: '📢', motion: 'sway' },
+  { id: 'kampanyalar', label: 'Kampanyalar/İndirimler', emoji: '🏷️', motion: 'pulse' },
 ];
 // Ortada: hızlı erişim (grup başlığı yok)
 const MENU_ITEMS = [
-  { id: 'rezervasyon', label: 'Rezervasyon', emoji: '📅' },
-  { id: 'etkinlikler', label: 'Yöresel Etkinlikler', emoji: '🎊' },
-  { id: 'esnaf', label: 'Esnaf', emoji: '🏪' },
-  { id: 'hava', label: 'Hava Durumu', emoji: '🌤️' },
-  { id: 'eczane', label: 'Nöbetçi Eczane', emoji: '💊' },
-  { id: 'cekici', label: 'Çekici', emoji: '🚗' },
-  { id: 'lastikci', label: 'Lastikçim', emoji: '🛞' },
-  { id: 'taksi', label: 'Taksi', emoji: '🚕' },
+  { id: 'rezervasyon', label: 'Rezervasyon', emoji: '📅', motion: 'float' },
+  { id: 'etkinlikler', label: 'Yöresel Etkinlikler', emoji: '🎊', motion: 'bounce' },
+  { id: 'esnaf', label: 'Esnaf', emoji: '🏪', motion: 'float' },
+  { id: 'hava', label: 'Hava Durumu', emoji: '🌤️', motion: 'float' },
+  { id: 'eczane', label: 'Nöbetçi Eczane', emoji: '💊', motion: 'pulse' },
+  { id: 'cekici', label: 'Çekici', emoji: '🚗', motion: 'sway' },
+  { id: 'lastikci', label: 'Lastikçim', emoji: '🛞', motion: 'spin' },
+  { id: 'taksi', label: 'Taksi', emoji: '🚕', motion: 'bounce' },
 ];
 // En altta: İş ilanları
 const IS_ILANLARI_GRUP = [
-  { id: 'isilanlari', label: 'İş ilanları', emoji: '💼' },
+  { id: 'isilanlari', label: 'İş ilanları', emoji: '💼', motion: 'float' },
 ];
 
 const GUEST_ALLOWED = new Set(['duyurular', 'hava', 'eczane']);
 
 export default function HomeScreen({ navigation, route }) {
+  const { tx, lang } = useLanguage();
   const isGuest = route?.params?.guest === true;
+  const eventsLocked = lang === 'en';
 
   useEffect(() => {
     warmupAfterFirstPaint();
   }, []);
 
   const handlePress = (item) => {
+    if (item.id === 'etkinlikler' && eventsLocked) {
+      Alert.alert(
+        tx('Yöresel Etkinlikler'),
+        tx('Yöresel etkinlikler yalnızca Türkçe dilinde kullanılabilir.')
+      );
+      return;
+    }
     if (isGuest && !GUEST_ALLOWED.has(item.id)) {
       Alert.alert(
-        'Üye girişi gerekli',
-        'Rezervasyon ve talepler için üye olmalısınız.',
+        tx('Üye girişi gerekli'),
+        tx('Rezervasyon ve talepler için üye olmalısınız.'),
         [
-          { text: 'Tamam', style: 'cancel' },
-          { text: 'Giriş yap', onPress: () => navigation.replace('Login') },
+          { text: tx('Tamam'), style: 'cancel' },
+          { text: tx('Giriş yap'), onPress: () => navigation.replace('Login') },
         ]
       );
       return;
@@ -98,8 +110,9 @@ export default function HomeScreen({ navigation, route }) {
     Alert.alert(item.label, `${item.label} seçildi. (Ekran yakında eklenecek)`);
   };
 
-  const renderCard = (item) => {
-    const disabled = isGuest && !GUEST_ALLOWED.has(item.id);
+  const renderCard = (item, index) => {
+    const disabled =
+      (isGuest && !GUEST_ALLOWED.has(item.id)) || (item.id === 'etkinlikler' && eventsLocked);
     return (
       <TouchableOpacity
         key={item.id}
@@ -109,20 +122,29 @@ export default function HomeScreen({ navigation, route }) {
         activeOpacity={0.8}
       >
         <View style={[styles.logoCircle, disabled && styles.logoCircleDisabled]}>
-          <Text style={[styles.emoji, disabled && styles.emojiDisabled]}>{item.emoji}</Text>
+          <AnimatedSectionIcon
+            emoji={item.emoji}
+            motion={item.motion}
+            disabled={disabled}
+            delay={index * 160}
+            style={[styles.emoji, disabled && styles.emojiDisabled]}
+          />
         </View>
         <Text style={[styles.cardLabel, disabled && styles.cardLabelDisabled]} numberOfLines={2}>
-          {item.label}
+          {tx(item.label)}
         </Text>
       </TouchableOpacity>
     );
   };
 
+  const allCards = [...DUYURULAR_GRUP, ...MENU_ITEMS, ...IS_ILANLARI_GRUP];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
+      <View style={styles.hero}>
+        <Text style={styles.kicker}>Muğla</Text>
         <Text style={styles.title}>48 App</Text>
-        <Text style={styles.subtitle}>Hızlı erişim</Text>
+        <Text style={styles.subtitle}>{tx('Hizmetler ve rezervasyon')}</Text>
       </View>
       {isGuest && (
         <TouchableOpacity
@@ -130,14 +152,12 @@ export default function HomeScreen({ navigation, route }) {
           onPress={() => navigation.replace('Login')}
           activeOpacity={0.8}
         >
-          <Text style={styles.guestBannerText}>Misafir olarak geziniyorsunuz · Giriş yap</Text>
+          <Text style={styles.guestBannerText}>{tx('Misafir olarak geziniyorsunuz · Giriş yap')}</Text>
         </TouchableOpacity>
       )}
 
       <View style={styles.grid}>
-        {DUYURULAR_GRUP.map(renderCard)}
-        {MENU_ITEMS.map(renderCard)}
-        {IS_ILANLARI_GRUP.map(renderCard)}
+        {allCards.map(renderCard)}
       </View>
     </ScrollView>
   );
@@ -146,85 +166,100 @@ export default function HomeScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.bg,
   },
   content: {
-    padding: 20,
     paddingBottom: 40,
   },
-  header: {
-    marginBottom: 24,
-    alignItems: 'center',
+  hero: {
+    backgroundColor: colors.primary,
+    paddingTop: 64,
+    paddingBottom: 28,
+    paddingHorizontal: 24,
+    marginBottom: 18,
+  },
+  kicker: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    marginBottom: 6,
   },
   title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#34C759',
-    marginBottom: 4,
+    fontSize: 30,
+    fontWeight: '800',
+    color: colors.white,
+    marginBottom: 6,
+    letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 15,
-    color: '#666',
+    color: 'rgba(255,255,255,0.82)',
+    fontWeight: '500',
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
   },
   card: {
     width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
     marginBottom: 14,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.card,
   },
   logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#f0f9f2',
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   emoji: {
-    fontSize: 32,
+    fontSize: 28,
   },
   cardLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '700',
+    color: colors.text,
     textAlign: 'center',
   },
   guestBanner: {
-    backgroundColor: '#FFF3CD',
-    paddingVertical: 10,
+    backgroundColor: colors.warningSoft,
+    marginHorizontal: 16,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 10,
+    borderRadius: 14,
     marginBottom: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8D7A8',
   },
   guestBannerText: {
     fontSize: 13,
-    color: '#856404',
+    color: colors.warningText,
     fontWeight: '600',
   },
   cardDisabled: {
     opacity: 0.45,
   },
   logoCircleDisabled: {
-    backgroundColor: '#e8e8e8',
+    backgroundColor: '#E8E6E1',
   },
   emojiDisabled: {
     opacity: 0.5,
   },
   cardLabelDisabled: {
-    color: '#aaa',
+    color: '#A3A09A',
   },
 });

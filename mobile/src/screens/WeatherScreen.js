@@ -9,50 +9,29 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { getCurrentPosition, reverseGeocode } from '../services/locationService';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const OPEN_METEO = 'https://api.open-meteo.com/v1/forecast';
 
-const WEATHER_CODES = {
-  0: 'Açık',
-  1: 'Çoğunlukla açık',
-  2: 'Parçalı bulutlu',
-  3: 'Bulutlu',
-  45: 'Sis',
-  48: 'Kırağılı sis',
-  51: 'Çisenti (hafif)',
-  53: 'Çisenti',
-  55: 'Çisenti (yoğun)',
-  61: 'Yağmur (hafif)',
-  63: 'Yağmur',
-  65: 'Yağmur (şiddetli)',
-  71: 'Kar (hafif)',
-  73: 'Kar',
-  75: 'Kar (yoğun)',
-  77: 'Kar taneleri',
-  80: 'Sağanak (hafif)',
-  81: 'Sağanak',
-  82: 'Sağanak (şiddetli)',
-  85: 'Kar sağanağı (hafif)',
-  86: 'Kar sağanağı (şiddetli)',
-  95: 'Gök gürültülü fırtına',
-  96: 'Gök gürültülü fırtına (dolu)',
-};
-
-function getWeatherLabel(code) {
-  return WEATHER_CODES[code] || `Kod ${code}`;
+function formatTime(iso, locale) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatTime(iso) {
+function formatDate(iso, locale) {
   const d = new Date(iso);
-  return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDate(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 export default function WeatherScreen({ navigation }) {
+  const { tx, t, lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-GB' : 'tr-TR';
+  const weatherLabel = (code) => {
+    const key = `weather.codes.${code}`;
+    const label = t(key);
+    return label === key ? t('weather.unknownCode', { code }) : label;
+  };
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -80,7 +59,7 @@ export default function WeatherScreen({ navigation }) {
         setHourly(data.hourly || null);
         setDaily(data.daily || null);
       } else {
-        setError('Hava durumu alınamadı.');
+        setError('weather.unavailable');
       }
     } catch (e) {
       setError('Sunucuya bağlanılamadı.');
@@ -95,7 +74,7 @@ export default function WeatherScreen({ navigation }) {
     setError(null);
     const coords = await getCurrentPosition();
     if (!coords) {
-      setError('Konum alınamadı. Konum iznini açın veya mobilde: npx expo install expo-location');
+      setError('weather.noLocation');
       setLoading(false);
       return;
     }
@@ -132,13 +111,13 @@ export default function WeatherScreen({ navigation }) {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backText}>← Geri</Text>
+            <Text style={styles.backText}>← {tx('Geri')}</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Hava Durumu</Text>
+          <Text style={styles.title}>{tx('Hava Durumu')}</Text>
         </View>
         <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#34C759" />
-          <Text style={styles.loadingText}>Konum ve hava durumu alınıyor...</Text>
+          <ActivityIndicator size="large" color="#1B4D4A" />
+          <Text style={styles.loadingText}>{tx('Konum ve hava durumu alınıyor...')}</Text>
         </View>
       </View>
     );
@@ -165,52 +144,52 @@ export default function WeatherScreen({ navigation }) {
       style={styles.container}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />
+        <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />
       }
     >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Geri</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Hava Durumu</Text>
+            <Text style={styles.backText}>← {tx('Geri')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>{tx('Hava Durumu')}</Text>
         {locationLabel ? (
-          <Text style={styles.subtitle}>Konum: {locationLabel}</Text>
+          <Text style={styles.subtitle}>{t('weather.location', { place: locationLabel })}</Text>
         ) : (
-          <Text style={styles.subtitle}>Konumunuza göre güncellenir</Text>
+          <Text style={styles.subtitle}>{tx('Konumunuza göre güncellenir')}</Text>
         )}
       </View>
 
       {error ? (
         <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>{tx(error)}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={loadByLocation}>
-            <Text style={styles.retryBtnText}>Tekrar dene</Text>
+            <Text style={styles.retryBtnText}>{tx('Tekrar dene')}</Text>
           </TouchableOpacity>
         </View>
       ) : current ? (
         <>
           <View style={styles.card}>
             <Text style={styles.temp}>{Math.round(current.temperature_2m)}°</Text>
-            <Text style={styles.desc}>{getWeatherLabel(current.weather_code)}</Text>
+            <Text style={styles.desc}>{weatherLabel(current.weather_code)}</Text>
             <View style={styles.details}>
               {current.relative_humidity_2m != null && (
-                <Text style={styles.detail}>Nem: %{current.relative_humidity_2m}</Text>
+                <Text style={styles.detail}>{t('weather.humidity', { value: current.relative_humidity_2m })}</Text>
               )}
               {current.wind_speed_10m != null && (
-                <Text style={styles.detail}>Rüzgar: {current.wind_speed_10m} km/s</Text>
+                <Text style={styles.detail}>{t('weather.wind', { value: current.wind_speed_10m })}</Text>
               )}
             </View>
           </View>
 
           {hourlyList.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Saatlik tahmin</Text>
+              <Text style={styles.sectionTitle}>{tx('Saatlik tahmin')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hourlyScroll}>
                 {hourlyList.map((h, i) => (
                   <View key={h.time} style={styles.hourlyItem}>
-                    <Text style={styles.hourlyTime}>{formatTime(h.time)}</Text>
+                    <Text style={styles.hourlyTime}>{formatTime(h.time, locale)}</Text>
                     <Text style={styles.hourlyTemp}>{Math.round(h.temp)}°</Text>
-                    <Text style={styles.hourlyDesc} numberOfLines={1}>{getWeatherLabel(h.code)}</Text>
+                    <Text style={styles.hourlyDesc} numberOfLines={1}>{weatherLabel(h.code)}</Text>
                   </View>
                 ))}
               </ScrollView>
@@ -219,11 +198,11 @@ export default function WeatherScreen({ navigation }) {
 
           {dailyList.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Günlük tahmin</Text>
+              <Text style={styles.sectionTitle}>{tx('Günlük tahmin')}</Text>
               {dailyList.map((d, i) => (
                 <View key={d.date} style={styles.dailyRow}>
-                  <Text style={styles.dailyDate}>{formatDate(d.date)}</Text>
-                  <Text style={styles.dailyDesc} numberOfLines={1}>{getWeatherLabel(d.code)}</Text>
+                  <Text style={styles.dailyDate}>{formatDate(d.date, locale)}</Text>
+                  <Text style={styles.dailyDesc} numberOfLines={1}>{weatherLabel(d.code)}</Text>
                   <Text style={styles.dailyTemp}>
                     {Math.round(d.min)}° / {Math.round(d.max)}°
                   </Text>
@@ -238,10 +217,10 @@ export default function WeatherScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   content: { paddingBottom: 40 },
   header: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingTop: 56,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -254,7 +233,7 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 12, fontSize: 15, color: '#666' },
   errorBox: { margin: 20, padding: 16, backgroundColor: '#fff0f0', borderRadius: 12, borderWidth: 1, borderColor: '#ffcccc' },
   errorText: { fontSize: 14, color: '#c00', marginBottom: 12 },
-  retryBtn: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#34C759', borderRadius: 8 },
+  retryBtn: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#1B4D4A', borderRadius: 8 },
   retryBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   card: {
     margin: 20,
@@ -279,5 +258,5 @@ const styles = StyleSheet.create({
   dailyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
   dailyDate: { width: 100, fontSize: 14, color: '#333', fontWeight: '500' },
   dailyDesc: { flex: 1, fontSize: 13, color: '#666', marginHorizontal: 8 },
-  dailyTemp: { fontSize: 14, fontWeight: '600', color: '#34C759' },
+  dailyTemp: { fontSize: 14, fontWeight: '600', color: '#1B4D4A' },
 });

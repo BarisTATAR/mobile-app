@@ -5,6 +5,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 
 import LoginScreen from './src/screens/LoginScreen';
+import { colors } from './src/theme';
+import { LanguageProvider, useLanguage } from './src/i18n/LanguageContext';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -49,19 +51,26 @@ const WeatherScreen = lazyScreen(() => require('./src/screens/WeatherScreen'));
 const EtkinliklerScreen = lazyScreen(() => require('./src/screens/EtkinliklerScreen'));
 
 function TabNavigator() {
+  const { t } = useLanguage();
   return (
     <Tab.Navigator
       lazy
       screenOptions={{
-        tabBarActiveTintColor: '#34C759',
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: '#8A8680',
         freezeOnBlur: true,
-        headerStyle: {
-          backgroundColor: '#34C759',
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 62,
+          paddingBottom: 8,
+          paddingTop: 6,
         },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
+        tabBarLabelStyle: {
+          fontWeight: '600',
+          fontSize: 12,
         },
       }}
     >
@@ -69,34 +78,32 @@ function TabNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarLabel: 'Home',
-          headerTitle: 'Home',
+          tabBarLabel: t('tabs.home'),
         }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarLabel: 'Profile',
-          headerTitle: 'Profile',
+          tabBarLabel: t('tabs.profile'),
         }}
       />
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarLabel: 'Çıkış',
-          headerTitle: 'Çıkış',
+          tabBarLabel: t('tabs.logout'),
         }}
       />
     </Tab.Navigator>
   );
 }
 
-export default function App() {
+function AppNav() {
+  const { t } = useLanguage();
   return (
     <NavigationContainer>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -115,8 +122,26 @@ export default function App() {
         <Stack.Screen name="PremiumListingLogin" component={PremiumListingLoginScreen} />
         <Stack.Screen name="PremiumListingMain" component={PremiumListingMainScreen} />
         <Stack.Screen name="AdminMain" component={AdminMainScreen} />
-        <Stack.Screen name="LisansBitmekUzere" component={LisansBitmekUzereScreen} options={{ headerShown: true, title: 'Lisansı bitmek üzere' }} />
-        <Stack.Screen name="BekleyenKayitlar" component={BekleyenKayitlarScreen} options={{ headerShown: true, title: 'Bekleyen kayıtlar' }} />
+        <Stack.Screen
+          name="LisansBitmekUzere"
+          component={LisansBitmekUzereScreen}
+          options={{
+            headerShown: true,
+            title: t('headers.lisans'),
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: colors.white,
+          }}
+        />
+        <Stack.Screen
+          name="BekleyenKayitlar"
+          component={BekleyenKayitlarScreen}
+          options={{
+            headerShown: true,
+            title: t('headers.pending'),
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: colors.white,
+          }}
+        />
         <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AdminUsersByAddress" component={AdminUsersByAddressScreen} options={{ headerShown: false }} />
         <Stack.Screen name="BusinessList" component={BusinessListScreen} />
@@ -128,9 +153,27 @@ export default function App() {
         <Stack.Screen name="TaksiList" component={TaksiListScreen} />
         <Stack.Screen name="PharmacyOnDuty" component={PharmacyOnDutyScreen} />
         <Stack.Screen name="Weather" component={WeatherScreen} />
-        <Stack.Screen name="Etkinlikler" component={EtkinliklerScreen} options={{ headerShown: true, title: 'Yöresel Etkinlikler' }} />
+        <Stack.Screen
+          name="Etkinlikler"
+          component={EtkinliklerScreen}
+          options={{
+            headerShown: true,
+            title: t('headers.etkinlikler'),
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: colors.white,
+            headerTitleStyle: { fontWeight: '700' },
+          }}
+        />
         <Stack.Screen name="Main" component={TabNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppNav />
+    </LanguageProvider>
   );
 }

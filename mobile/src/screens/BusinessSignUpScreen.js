@@ -67,6 +67,8 @@ import {
 } from '../services/turkeyAddressService';
 import { digitsOnly } from '../utils/phoneInput';
 import { LIMAN_UYE_SAAT_SECENEKLERI } from '../utils/limanSaatleri';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const FAALIYET_ALANLARI = [
   { id: 'restorant', name: 'Restorant' },
@@ -79,6 +81,7 @@ const SAAT_SECENEKLERI = ['Kapalı', ...Array.from({ length: 17 }, (_, i) => `${
 // 07:00 - 23:00 + Kapalı
 
 export default function BusinessSignUpScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [businessName, setBusinessName] = useState('');
   const [password, setPassword] = useState('');
   const [passwordRepeat, setPasswordRepeat] = useState('');
@@ -196,11 +199,11 @@ export default function BusinessSignUpScreen({ navigation }) {
         setMenuPdfUrl(base + path);
         setMenuPdfName(file.name || 'menu.pdf');
       } else {
-        Alert.alert('Hata', data.error || 'PDF yüklenemedi');
+        Alert.alert(tx('Hata'), data.error || 'PDF yüklenemedi');
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('Hata', 'PDF seçilemedi veya yüklenemedi');
+      Alert.alert(tx('Hata'), 'PDF seçilemedi veya yüklenemedi');
     } finally {
       setUploadingPdf(false);
     }
@@ -208,25 +211,25 @@ export default function BusinessSignUpScreen({ navigation }) {
 
   const handleSignUp = async () => {
     if (password !== passwordRepeat) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor. Lütfen aynı şifreyi iki kez girin.');
+      Alert.alert(tx('Hata'), 'Şifreler eşleşmiyor. Lütfen aynı şifreyi iki kez girin.');
       return;
     }
     if (!businessName || !password || !passwordRepeat || !activityField || !city || !district || !neighborhood) {
-      Alert.alert('Hata', 'Lütfen tüm alanları doldurun');
+      Alert.alert(tx('Hata'), 'Lütfen tüm alanları doldurun');
       return;
     }
     if (activityField === 'tekne_turu' && (!limanCikisSaati || !limanGelisSaati)) {
-      Alert.alert('Hata', 'Tekne turu için liman çıkış ve geliş saatlerini seçin');
+      Alert.alert(tx('Hata'), 'Tekne turu için liman çıkış ve geliş saatlerini seçin');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Hata', 'Şifre en az 6 karakter olmalıdır');
+      Alert.alert(tx('Hata'), 'Şifre en az 6 karakter olmalıdır');
       return;
     }
     if (licenseExpiry.trim()) {
       const licErr = errorIfLicenseExpiryBeforeToday(licenseExpiry.trim());
       if (licErr) {
-        Alert.alert('Tarih', licErr);
+        Alert.alert(tx('Tarih'), licErr);
         return;
       }
     }
@@ -272,15 +275,15 @@ export default function BusinessSignUpScreen({ navigation }) {
       });
       const data = await response.json();
       if (response.ok) {
-        Alert.alert('Kayıt Alındı', 'Kaydınız admin onayına gönderildi. Onaylandıktan sonra işletme girişi yapabilirsiniz.', [
+        Alert.alert(tx('Kayıt Alındı'), 'Kaydınız admin onayına gönderildi. Onaylandıktan sonra işletme girişi yapabilirsiniz.', [
           { text: 'Tamam', onPress: () => navigation.replace('Login') },
         ]);
       } else {
-        Alert.alert('Hata', data.error || 'Kayıt sırasında bir hata oluştu');
+        Alert.alert(tx('Hata'), data.error || 'Kayıt sırasında bir hata oluştu');
       }
     } catch (error) {
       console.error('Business registration error:', error);
-      Alert.alert('Hata', 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
+      Alert.alert(tx('Hata'), 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
     } finally {
       setLoading(false);
     }
@@ -301,16 +304,16 @@ export default function BusinessSignUpScreen({ navigation }) {
         >
           <View style={styles.content}>
             <View style={styles.header}>
-              <Text style={styles.title}>İşletme Kayıt</Text>
-              <Text style={styles.subtitle}>İşletmenizi kaydedin</Text>
+              <Text style={styles.title}>{tx('İşletme Kayıt')}</Text>
+              <Text style={styles.subtitle}>{tx('İşletmenizi kaydedin')}</Text>
             </View>
 
             <View style={styles.formContainer}>
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>İşletme Adı</Text>
+                <Text style={styles.label}>{tx('İşletme Adı')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="İşletme adını girin"
+                  placeholder={tx('İşletme adını girin')}
                   placeholderTextColor="#999"
                   value={businessName}
                   onChangeText={setBusinessName}
@@ -319,10 +322,10 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Şifre</Text>
+                <Text style={styles.label}>{tx('Şifre')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Şifre (en az 6 karakter)"
+                  placeholder={tx('Şifre (en az 6 karakter)')}
                   placeholderTextColor="#999"
                   value={password}
                   onChangeText={setPassword}
@@ -335,10 +338,10 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Şifre (Tekrar)</Text>
+                <Text style={styles.label}>{tx('Şifre (Tekrar)')}</Text>
                 <TextInput
                   style={[styles.input, passwordRepeatTouched && !passwordsMatch && styles.inputError]}
-                  placeholder="Şifrenizi tekrar girin"
+                  placeholder={tx('Şifrenizi tekrar girin')}
                   placeholderTextColor="#999"
                   value={passwordRepeat}
                   onChangeText={setPasswordRepeat}
@@ -346,7 +349,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                   autoCapitalize="none"
                 />
                 {passwordRepeatTouched && !passwordsMatch && (
-                  <Text style={styles.errorText}>Şifreler eşleşmiyor</Text>
+                  <Text style={styles.errorText}>{tx('Şifreler eşleşmiyor')}</Text>
                 )}
                 <TouchableOpacity style={styles.passwordToggle} onPress={() => setShowPasswordRepeat(!showPasswordRepeat)}>
                   <Text style={styles.passwordToggleText}>{showPasswordRepeat ? 'Gizle' : 'Göster'}</Text>
@@ -354,10 +357,10 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Cep Telefonu</Text>
+                <Text style={styles.label}>{tx('Cep Telefonu')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Sadece rakam, örn. 05551234567"
+                  placeholder={tx('Sadece rakam, örn. 05551234567')}
                   placeholderTextColor="#999"
                   value={phone}
                   onChangeText={(t) => setPhone(digitsOnly(t))}
@@ -366,7 +369,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Lisans bitiş tarihi</Text>
+                <Text style={styles.label}>{tx('Lisans bitiş tarihi')}</Text>
                 <TouchableOpacity
                   style={styles.selectTouch}
                   onPress={() => setLicenseExpiryDatePicker(true)}
@@ -398,14 +401,14 @@ export default function BusinessSignUpScreen({ navigation }) {
                   />
                   {Platform.OS === 'ios' ? (
                     <TouchableOpacity style={styles.datePickerOk} onPress={() => setLicenseExpiryDatePicker(false)}>
-                      <Text style={styles.datePickerOkText}>Tamam</Text>
+                      <Text style={styles.datePickerOkText}>{tx('Tamam')}</Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>
               ) : null}
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Faaliyet Alanı</Text>
+                <Text style={styles.label}>{tx('Faaliyet Alanı')}</Text>
                 <TouchableOpacity
                   style={styles.selectTouch}
                   onPress={() => setShowActivityModal(true)}
@@ -418,7 +421,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.sectionLabel}>
-                <Text style={styles.sectionLabelText}>İşletme Konum</Text>
+                <Text style={styles.sectionLabelText}>{tx('İşletme Konum')}</Text>
               </View>
 
               {district && neighborhood ? (
@@ -437,7 +440,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>İlçe</Text>
+                <Text style={styles.label}>{tx('İlçe')}</Text>
                 <TouchableOpacity
                   style={styles.selectTouch}
                   onPress={() => city && setShowDistrictModal(true)}
@@ -451,7 +454,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Mahalle</Text>
+                <Text style={styles.label}>{tx('Mahalle')}</Text>
                 <TouchableOpacity
                   style={styles.selectTouch}
                   onPress={() => district && setShowNeighborhoodModal(true)}
@@ -465,10 +468,10 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Konum (Google linki veya adres)</Text>
+                <Text style={styles.label}>{tx('Konum (Google linki veya adres)')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Örn: Konak, Atatürk Cd., 48500 Yatağan/Muğla"
+                  placeholder={tx('Örn: Konak, Atatürk Cd., 48500 Yatağan/Muğla')}
                   placeholderTextColor="#999"
                   value={googleLocation}
                   onChangeText={setGoogleLocation}
@@ -479,7 +482,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.sectionLabel}>
-                <Text style={styles.sectionLabelText}>Menü / Fiyat Listesi</Text>
+                <Text style={styles.sectionLabelText}>{tx('Menü / Fiyat Listesi')}</Text>
               </View>
               <View style={styles.inputContainer}>
                 <TouchableOpacity
@@ -496,10 +499,10 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.sectionLabel}>
-                <Text style={styles.sectionLabelText}>Varsa ekleyin</Text>
+                <Text style={styles.sectionLabelText}>{tx('Varsa ekleyin')}</Text>
               </View>
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Google değerlendirme puanı (link)</Text>
+                <Text style={styles.label}>{tx('Google değerlendirme puanı (link)')}</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Google puan/review linki"
@@ -536,7 +539,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.sectionLabel}>
-                <Text style={styles.sectionLabelText}>Olanaklar (varsa işaretleyin)</Text>
+                <Text style={styles.sectionLabelText}>{tx('Olanaklar (varsa işaretleyin)')}</Text>
               </View>
               {[
                 { key: 'charging', label: 'Elektrikli şarj istasyonu', value: hasChargingStation, set: setHasChargingStation },
@@ -567,7 +570,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               {activityField === 'tekne_turu' ? (
                 <>
                   <View style={styles.hoursRow}>
-                    <Text style={styles.hoursLabel}>Çıkış</Text>
+                    <Text style={styles.hoursLabel}>{tx('Çıkış')}</Text>
                     <View style={[styles.hoursInputs, { flex: 1, justifyContent: 'flex-end' }]}>
                       <TouchableOpacity
                         style={[styles.timeTouch, { flex: 1, maxWidth: '100%' }]}
@@ -594,7 +597,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               ) : (
                 <>
                   <View style={styles.hoursRow}>
-                    <Text style={styles.hoursLabel}>Hafta içi</Text>
+                    <Text style={styles.hoursLabel}>{tx('Hafta içi')}</Text>
                     <View style={styles.hoursInputs}>
                       <TouchableOpacity
                         style={styles.timeTouch}
@@ -619,7 +622,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                   </View>
 
                   <View style={styles.hoursRow}>
-                    <Text style={styles.hoursLabel}>Hafta sonu</Text>
+                    <Text style={styles.hoursLabel}>{tx('Hafta sonu')}</Text>
                     <View style={styles.hoursInputs}>
                       <TouchableOpacity
                         style={styles.timeTouch}
@@ -653,7 +656,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                   onPress={() => setTimeModalTarget(null)}
                 >
                   <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Saat Seçin</Text>
+                    <Text style={styles.modalTitle}>{tx('Saat Seçin')}</Text>
                     <FlatList
                       data={SAAT_SECENEKLERI}
                       keyExtractor={(item) => item}
@@ -673,7 +676,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                       )}
                     />
                     <TouchableOpacity style={styles.modalClose} onPress={() => setTimeModalTarget(null)}>
-                      <Text style={styles.modalCloseText}>Kapat</Text>
+                      <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -687,7 +690,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                   onPress={() => setShowActivityModal(false)}
                 >
                   <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Faaliyet Alanı Seçin</Text>
+                    <Text style={styles.modalTitle}>{tx('Faaliyet Alanı Seçin')}</Text>
                     {FAALIYET_ALANLARI.map((item) => (
                       <TouchableOpacity
                         key={item.id}
@@ -707,7 +710,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                       </TouchableOpacity>
                     ))}
                     <TouchableOpacity style={styles.modalClose} onPress={() => setShowActivityModal(false)}>
-                      <Text style={styles.modalCloseText}>Kapat</Text>
+                      <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -732,7 +735,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                       </TouchableOpacity>
                     ))}
                     <TouchableOpacity style={styles.modalClose} onPress={() => setLimanTimeModalTarget(null)}>
-                      <Text style={styles.modalCloseText}>Kapat</Text>
+                      <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -742,7 +745,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               <Modal visible={showDistrictModal} transparent animationType="slide">
                 <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowDistrictModal(false)}>
                   <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>İlçe Seçin</Text>
+                    <Text style={styles.modalTitle}>{tx('İlçe Seçin')}</Text>
                     <FlatList
                       data={districtsList}
                       keyExtractor={(item) => String(item.id)}
@@ -759,7 +762,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                       )}
                     />
                     <TouchableOpacity style={styles.modalClose} onPress={() => setShowDistrictModal(false)}>
-                      <Text style={styles.modalCloseText}>Kapat</Text>
+                      <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -769,7 +772,7 @@ export default function BusinessSignUpScreen({ navigation }) {
               <Modal visible={showNeighborhoodModal} transparent animationType="slide">
                 <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowNeighborhoodModal(false)}>
                   <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Mahalle Seçin</Text>
+                    <Text style={styles.modalTitle}>{tx('Mahalle Seçin')}</Text>
                     <FlatList
                       data={neighborhoodsList}
                       keyExtractor={(item) => String(item.id)}
@@ -786,7 +789,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                       )}
                     />
                     <TouchableOpacity style={styles.modalClose} onPress={() => setShowNeighborhoodModal(false)}>
-                      <Text style={styles.modalCloseText}>Kapat</Text>
+                      <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -798,7 +801,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                   onPress={() => navigation.goBack()}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.backButtonText}>Geri Dön</Text>
+                  <Text style={styles.backButtonText}>{tx('Geri Dön')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
@@ -812,7 +815,7 @@ export default function BusinessSignUpScreen({ navigation }) {
                   {loading ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.signUpButtonText}>Kayıt Ol</Text>
+                    <Text style={styles.signUpButtonText}>{tx('Kayıt Ol')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -825,13 +828,13 @@ export default function BusinessSignUpScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   keyboardView: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   content: { flex: 1, padding: 20, paddingTop: 40 },
   header: { alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#34C759', marginBottom: 10 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#1B4D4A', marginBottom: 10 },
   subtitle: { fontSize: 16, color: '#666' },
   formContainer: { width: '100%', maxWidth: 400, alignSelf: 'center' },
   inputContainer: { marginBottom: 20 },
@@ -848,7 +851,7 @@ const styles = StyleSheet.create({
   inputError: { borderColor: '#FF3B30' },
   errorText: { fontSize: 13, color: '#FF3B30', marginTop: 6 },
   passwordToggle: { marginTop: 8, alignSelf: 'flex-end', paddingVertical: 4, paddingHorizontal: 8 },
-  passwordToggleText: { fontSize: 14, color: '#34C759', fontWeight: '600' },
+  passwordToggleText: { fontSize: 14, color: '#1B4D4A', fontWeight: '600' },
   sectionLabel: { marginTop: 8, marginBottom: 12 },
   sectionLabelText: { fontSize: 18, fontWeight: '600', color: '#333' },
   selectTouch: {
@@ -874,12 +877,12 @@ const styles = StyleSheet.create({
   },
   fixedValueText: { fontSize: 16, color: '#666' },
   locationSummary: {
-    backgroundColor: '#f0f9f2',
+    backgroundColor: '#E6F0EF',
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
   },
   locationSummaryText: {
     fontSize: 15,
@@ -916,7 +919,7 @@ const styles = StyleSheet.create({
   },
   hoursDash: { fontSize: 16, color: '#666', fontWeight: '600' },
   pdfButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     padding: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -938,8 +941,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxChecked: {
-    borderColor: '#34C759',
-    backgroundColor: '#34C759',
+    borderColor: '#1B4D4A',
+    backgroundColor: '#1B4D4A',
   },
   checkboxTick: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   checkboxLabel: { fontSize: 15, color: '#333', flex: 1 },
@@ -949,11 +952,11 @@ const styles = StyleSheet.create({
   modalItem: { padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e0e0e0' },
   modalItemText: { fontSize: 16, color: '#333' },
   modalClose: { padding: 16, alignItems: 'center' },
-  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#34C759' },
+  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
   buttonRow: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 20 },
   signUpButton: {
     flex: 1,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
@@ -977,6 +980,6 @@ const styles = StyleSheet.create({
   },
   backButtonText: { color: '#666', fontSize: 16, fontWeight: '600' },
   datePickerWrap: { marginBottom: 16 },
-  datePickerOk: { padding: 14, alignItems: 'center', backgroundColor: '#34C759', borderRadius: 12, marginTop: 8 },
+  datePickerOk: { padding: 14, alignItems: 'center', backgroundColor: '#1B4D4A', borderRadius: 12, marginTop: 8 },
   datePickerOkText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

@@ -18,6 +18,7 @@ import { apiUrl, apiFetch } from '../config/api';
 import ListingMediaFormField from '../components/ListingMediaFormField';
 import { mediaFilesFromItem } from '../utils/listingMedia';
 import PremiumListingsPanel from '../components/PremiumListingsPanel';
+import { useLanguage } from '../i18n/LanguageContext';
 import {
   getReservationSlotsForDate,
   isDateManuallyClosed,
@@ -95,6 +96,7 @@ function sumAgeBucketsFromReservations(list) {
 }
 
 export default function BusinessMainScreen({ route, navigation }) {
+  const { tx } = useLanguage();
   const {
     businessId,
     businessName,
@@ -204,7 +206,7 @@ export default function BusinessMainScreen({ route, navigation }) {
   const checkMemberDiscount = useCallback(async () => {
     const raw = (memberIdInput || '').trim().toUpperCase();
     if (!raw) {
-      Alert.alert('Uyarı', 'Üye numarası girin.');
+      Alert.alert(tx('Uyarı'), 'Üye numarası girin.');
       return;
     }
     if (!businessId) return;
@@ -219,10 +221,10 @@ export default function BusinessMainScreen({ route, navigation }) {
       const data = await res.json().catch(() => ({}));
       setDiscountCheckResult(data);
       if (!res.ok && !data.member) {
-        Alert.alert('Hata', data.error || 'Kontrol yapılamadı');
+        Alert.alert(tx('Hata'), data.error || 'Kontrol yapılamadı');
       }
     } catch {
-      Alert.alert('Hata', 'Sunucuya bağlanılamadı');
+      Alert.alert(tx('Hata'), 'Sunucuya bağlanılamadı');
     } finally {
       setDiscountCheckLoading(false);
     }
@@ -291,7 +293,7 @@ export default function BusinessMainScreen({ route, navigation }) {
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        Alert.alert('Hata', data.error || 'İşlem yapılamadı');
+        Alert.alert(tx('Hata'), data.error || 'İşlem yapılamadı');
         return;
       }
       fetchPending();
@@ -312,7 +314,7 @@ export default function BusinessMainScreen({ route, navigation }) {
       }
       await fetchReservationsForDate(selectedDate);
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası');
     }
   };
 
@@ -359,14 +361,14 @@ export default function BusinessMainScreen({ route, navigation }) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        Alert.alert('Başarılı', 'Dosyalar güncellendi.');
+        Alert.alert(tx('Başarılı'), 'Dosyalar güncellendi.');
         if (data.business) setMediaFiles(mediaFilesFromItem(data.business));
         setMenuModalVisible(false);
       } else {
-        Alert.alert('Hata', data.error || 'Kaydedilemedi');
+        Alert.alert(tx('Hata'), data.error || 'Kaydedilemedi');
       }
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası');
     } finally {
       setMenuSaving(false);
     }
@@ -407,10 +409,10 @@ export default function BusinessMainScreen({ route, navigation }) {
         fetchReservationsForDate(selectedDate);
       } else {
         const err = await res.json().catch(() => ({}));
-        Alert.alert('Hata', err.error || 'İşlem yapılamadı');
+        Alert.alert(tx('Hata'), err.error || 'İşlem yapılamadı');
       }
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası');
     }
   };
 
@@ -449,14 +451,14 @@ export default function BusinessMainScreen({ route, navigation }) {
               });
               const data = await res.json().catch(() => ({}));
               if (!res.ok) {
-                Alert.alert('Hata', data.error || 'Kaydedilemedi');
+                Alert.alert(tx('Hata'), data.error || 'Kaydedilemedi');
                 return;
               }
               setReservationClosedDates(
                 Array.isArray(data.reservationClosedDates) ? data.reservationClosedDates : []
               );
             } catch {
-              Alert.alert('Hata', 'Bağlantı hatası');
+              Alert.alert(tx('Hata'), 'Bağlantı hatası');
             } finally {
               setClosedDatesSaving(false);
             }
@@ -519,7 +521,7 @@ export default function BusinessMainScreen({ route, navigation }) {
             navigation.replace('Login');
           }}
         >
-          <Text style={styles.logoutText}>Çıkış</Text>
+          <Text style={styles.logoutText}>{tx('Çıkış')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -570,9 +572,9 @@ export default function BusinessMainScreen({ route, navigation }) {
       {tab === 'rezervasyonlar' && (
         <>
           <View style={styles.dateSectionRow}>
-            <Text style={styles.dateSectionTitle}>Tarih seçin</Text>
+            <Text style={styles.dateSectionTitle}>{tx('Tarih seçin')}</Text>
             <TouchableOpacity style={styles.todayBtn} onPress={goToToday}>
-              <Text style={styles.todayBtnText}>Bugün</Text>
+              <Text style={styles.todayBtnText}>{tx('Bugün')}</Text>
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -612,7 +614,7 @@ export default function BusinessMainScreen({ route, navigation }) {
                   {getDayOfMonth(dateStr)}
                 </Text>
                 {manuallyClosed ? (
-                  <Text style={styles.dateChipClosedLabel}>Kapalı</Text>
+                  <Text style={styles.dateChipClosedLabel}>{tx('Kapalı')}</Text>
                 ) : null}
               </TouchableOpacity>
             );
@@ -651,12 +653,12 @@ export default function BusinessMainScreen({ route, navigation }) {
           ) : null}
 
           {loading ? (
-            <ActivityIndicator size="large" color="#34C759" style={styles.loader} />
+            <ActivityIndicator size="large" color="#1B4D4A" style={styles.loader} />
           ) : isPast(selectedDate) ? (
             <ScrollView
               style={styles.scroll}
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />
+                <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />
               }
             >
               {isTekneTuru ? (
@@ -698,7 +700,7 @@ export default function BusinessMainScreen({ route, navigation }) {
                 </>
               ) : (
                 <>
-                  <Text style={styles.pastSectionTitle} numberOfLines={1}>Başarılı</Text>
+                  <Text style={styles.pastSectionTitle} numberOfLines={1}>{tx('Başarılı')}</Text>
                   {(pastSuccess.length === 0 && pastFail.length === 0) && (
                     <Text style={styles.emptyText}>Bu tarihte rezervasyon yok.</Text>
                   )}
@@ -739,7 +741,7 @@ export default function BusinessMainScreen({ route, navigation }) {
             <ScrollView
               style={styles.scroll}
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />
+                <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />
               }
             >
               <Text style={styles.sectionTitle} numberOfLines={1}>Kişi özeti — {formatDateLabel(selectedDate)}</Text>
@@ -773,7 +775,7 @@ export default function BusinessMainScreen({ route, navigation }) {
             <ScrollView
               style={styles.scroll}
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />
+                <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />
               }
             >
               <Text style={styles.sectionTitle} numberOfLines={1}>Dilimler — {formatDateLabel(selectedDate)}</Text>
@@ -846,7 +848,7 @@ export default function BusinessMainScreen({ route, navigation }) {
             style={styles.discountInput}
             value={memberIdInput}
             onChangeText={(t) => setMemberIdInput(t.toUpperCase().replace(/[^0-9A-Z]/g, ''))}
-            placeholder="Örn. 48X7K9M2"
+            placeholder={tx('Örn. 48X7K9M2')}
             placeholderTextColor="#999"
             autoCapitalize="characters"
             autoCorrect={false}
@@ -921,7 +923,7 @@ export default function BusinessMainScreen({ route, navigation }) {
           data={pendingList}
           keyExtractor={(item) => item._id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />
           }
           ListEmptyComponent={
             !refreshing && pendingList.length === 0 ? (
@@ -948,7 +950,7 @@ export default function BusinessMainScreen({ route, navigation }) {
 
               {item.note ? (
                 <>
-                  <Text style={styles.pendingLabel}>Not</Text>
+                  <Text style={styles.pendingLabel}>{tx('Not')}</Text>
                   <Text style={styles.pendingNote}>{item.note}</Text>
                 </>
               ) : null}
@@ -975,22 +977,22 @@ export default function BusinessMainScreen({ route, navigation }) {
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setMenuModalVisible(false)} />
           <View style={styles.menuModalBox}>
-            <Text style={styles.menuModalTitle}>Fotoğraf / PDF</Text>
+            <Text style={styles.menuModalTitle}>{tx('Fotoğraf / PDF')}</Text>
             {menuLoading ? (
-              <ActivityIndicator size="large" color="#34C759" style={{ marginVertical: 24 }} />
+              <ActivityIndicator size="large" color="#1B4D4A" style={{ marginVertical: 24 }} />
             ) : (
               <ScrollView style={styles.menuModalScroll} showsVerticalScrollIndicator={false}>
                 <ListingMediaFormField value={mediaFiles} onChange={setMediaFiles} label="Dosyalar" />
                 <View style={styles.menuModalActions}>
                   <TouchableOpacity style={styles.menuCancelBtn} onPress={() => setMenuModalVisible(false)}>
-                    <Text style={styles.menuCancelBtnText}>İptal</Text>
+                    <Text style={styles.menuCancelBtnText}>{tx('İptal')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.menuSaveBtn, menuSaving && styles.menuUploadBtnDisabled]}
                     onPress={saveMenu}
                     disabled={menuSaving}
                   >
-                    {menuSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.menuSaveBtnText}>Kaydet</Text>}
+                    {menuSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.menuSaveBtnText}>{tx('Kaydet')}</Text>}
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -1005,10 +1007,10 @@ export default function BusinessMainScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F1EB',
   },
   header: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingTop: 48,
     paddingBottom: 16,
     paddingHorizontal: 20,
@@ -1072,22 +1074,22 @@ const styles = StyleSheet.create({
   menuPreviewWrap: { marginBottom: 16 },
   menuPreviewLabel: { fontSize: 13, color: '#666', marginBottom: 6 },
   menuPreviewImg: { width: '100%', height: 180, borderRadius: 10, backgroundColor: '#eee' },
-  menuPdfLabel: { fontSize: 13, color: '#34C759', marginBottom: 12 },
+  menuPdfLabel: { fontSize: 13, color: '#1B4D4A', marginBottom: 12 },
   menuUploadBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
     marginBottom: 10,
   },
-  menuUploadBtnSecondary: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#34C759' },
+  menuUploadBtnSecondary: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#1B4D4A' },
   menuUploadBtnDisabled: { opacity: 0.7 },
   menuUploadBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  menuUploadBtnTextSecondary: { color: '#34C759' },
+  menuUploadBtnTextSecondary: { color: '#1B4D4A' },
   menuModalActions: { flexDirection: 'row', marginTop: 16, gap: 12 },
   menuCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 10, backgroundColor: '#eee', alignItems: 'center' },
   menuCancelBtnText: { fontSize: 16, fontWeight: '600', color: '#666' },
-  menuSaveBtn: { flex: 1, paddingVertical: 14, borderRadius: 10, backgroundColor: '#34C759', alignItems: 'center' },
+  menuSaveBtn: { flex: 1, paddingVertical: 14, borderRadius: 10, backgroundColor: '#1B4D4A', alignItems: 'center' },
   menuSaveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   tabsScroll: {
     flexGrow: 0,
@@ -1105,7 +1107,7 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     borderBottomWidth: 3,
-    borderBottomColor: '#34C759',
+    borderBottomColor: '#1B4D4A',
   },
   tabText: {
     fontSize: 15,
@@ -1113,7 +1115,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabTextActive: {
-    color: '#34C759',
+    color: '#1B4D4A',
   },
   sectionTitle: {
     fontSize: 16,
@@ -1140,7 +1142,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
   },
   todayBtnText: {
     fontSize: 14,
@@ -1168,8 +1170,8 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   dateChipSelected: {
-    backgroundColor: '#34C759',
-    borderColor: '#34C759',
+    backgroundColor: '#1B4D4A',
+    borderColor: '#1B4D4A',
   },
   dateChipPast: {
     opacity: 0.85,
@@ -1284,11 +1286,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   card: {
-    backgroundColor: '#f0f9f2',
+    backgroundColor: '#E6F0EF',
     padding: 12,
     borderRadius: 10,
     borderLeftWidth: 4,
-    borderLeftColor: '#34C759',
+    borderLeftColor: '#1B4D4A',
   },
   cardRow: {
     flexDirection: 'row',
@@ -1417,7 +1419,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   approveBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
   },
   rejectBtn: {
     backgroundColor: '#dc3545',
@@ -1529,7 +1531,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   discountCheckBtn: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',

@@ -1,12 +1,15 @@
 import React, { useRef } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { formatDateWithSlashes } from '../utils/dateInput';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 function digitsOf(value) {
   return String(value ?? '').replace(/\D/g, '').slice(0, 8);
 }
 
 export default function DateSlashInput({ value, onChange, testID }) {
+  const { tx } = useLanguage();
   const monthRef = useRef(null);
   const yearRef = useRef(null);
   const d = digitsOf(value);
@@ -31,7 +34,7 @@ export default function DateSlashInput({ value, onChange, testID }) {
         }}
         keyboardType="number-pad"
         maxLength={2}
-        placeholder="GG"
+        placeholder={tx('date.day')}
         placeholderTextColor="#999"
       />
       <Text style={styles.slash}>/</Text>
@@ -47,7 +50,7 @@ export default function DateSlashInput({ value, onChange, testID }) {
         }}
         keyboardType="number-pad"
         maxLength={2}
-        placeholder="AA"
+        placeholder={tx('date.month')}
         placeholderTextColor="#999"
       />
       <Text style={styles.slash}>/</Text>
@@ -62,7 +65,7 @@ export default function DateSlashInput({ value, onChange, testID }) {
         }}
         keyboardType="number-pad"
         maxLength={4}
-        placeholder="YYYY"
+        placeholder={tx('date.year')}
         placeholderTextColor="#999"
       />
     </View>
@@ -92,7 +95,7 @@ const styles = StyleSheet.create({
   slash: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#34C759',
+    color: '#1B4D4A',
     marginHorizontal: 8,
   },
 });

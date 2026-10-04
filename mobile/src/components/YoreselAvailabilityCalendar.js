@@ -1,13 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { YORESEL_CALENDAR_BARS } from '../constants/yoreselTimeSlots';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const MONTH_NAMES_TR = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
 ];
+const MONTH_NAMES_EN = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
-const WEEKDAY_LABELS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+const WEEKDAY_LABELS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+const WEEKDAY_LABELS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const CELL_PCT = '14.28%';
 
@@ -91,8 +98,11 @@ export default function YoreselAvailabilityCalendar({
   onSelectDay,
   selectedDateKey,
 }) {
+  const { tx, lang } = useLanguage();
+  const months = lang === 'en' ? MONTH_NAMES_EN : MONTH_NAMES_TR;
+  const weekdays = lang === 'en' ? WEEKDAY_LABELS_EN : WEEKDAY_LABELS_TR;
   const cells = buildMonthCells(year, monthIndex);
-  const title = `${MONTH_NAMES_TR[monthIndex]} ${year}`;
+  const title = `${months[monthIndex]} ${year}`;
 
   return (
     <View style={styles.wrap}>
@@ -133,7 +143,7 @@ export default function YoreselAvailabilityCalendar({
       </View>
 
       <View style={styles.weekRow}>
-        {WEEKDAY_LABELS.map((w) => (
+        {weekdays.map((w) => (
           <Text key={w} style={styles.weekLabel}>{w}</Text>
         ))}
       </View>

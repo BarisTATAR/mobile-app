@@ -36,6 +36,7 @@ import {
   BUSINESS_ACTIVITY_FILTER_OPTIONS,
 } from '../utils/mapMarkerColors';
 
+import { useLanguage } from '../i18n/LanguageContext';
 import {
   getProvinces,
   getDistrictsForProvince,
@@ -64,6 +65,7 @@ function getDateOptions() {
 const DATE_OPTIONS = getDateOptions();
 
 export default function BusinessListScreen({ navigation }) {
+  const { tx } = useLanguage();
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -250,15 +252,15 @@ export default function BusinessListScreen({ navigation }) {
     const c1 = parseInt(count6to12, 10) || 0;
     const c2 = parseInt(count12Plus, 10) || 0;
     if (c0 + c1 + c2 === 0) {
-      Alert.alert('Uyarı', 'En az bir kişi sayısı girin (0-6, 6-12 veya 12+ yaş).');
+      Alert.alert(tx('Uyarı'), 'En az bir kişi sayısı girin (0-6, 6-12 veya 12+ yaş).');
       return;
     }
     if (!reservationSlot) {
-      Alert.alert('Uyarı', 'Seçtiğiniz tarih için işletme kapalı veya uygun saat bulunamadı.');
+      Alert.alert(tx('Uyarı'), 'Seçtiğiniz tarih için işletme kapalı veya uygun saat bulunamadı.');
       return;
     }
     if (!appUser?.id) {
-      Alert.alert('Üye girişi gerekli', 'Rezervasyon yapmak için üye olmalısınız.');
+      Alert.alert(tx('Üye girişi gerekli'), 'Rezervasyon yapmak için üye olmalısınız.');
       return;
     }
     setReservationSending(true);
@@ -281,14 +283,14 @@ export default function BusinessListScreen({ navigation }) {
       if (res.ok) {
         setReservationModalVisible(false);
         setSelectedBusiness(null);
-        Alert.alert('Başarılı', 'Rezervasyon talebiniz işletmeye iletildi. Onay bekleniyor.');
+        Alert.alert(tx('Başarılı'), 'Rezervasyon talebiniz işletmeye iletildi. Onay bekleniyor.');
       } else if (res.status === 429 || data.code === 'ACTIVITY_DAILY_LIMIT' || data.code === 'ACTIVE_RESERVATION_LIMIT') {
-        Alert.alert('Uyarı', data.error || 'Rezervasyon limitine ulaştınız.');
+        Alert.alert(tx('Uyarı'), data.error || 'Rezervasyon limitine ulaştınız.');
       } else {
-        Alert.alert('Hata', data.error || 'Talep gönderilemedi.');
+        Alert.alert(tx('Hata'), data.error || 'Talep gönderilemedi.');
       }
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı kurulamadı.');
+      Alert.alert(tx('Hata'), 'Bağlantı kurulamadı.');
     } finally {
       setReservationSending(false);
     }
@@ -317,7 +319,7 @@ export default function BusinessListScreen({ navigation }) {
             {item.phone ? (
               <TouchableOpacity
                 onPress={() => {
-                  Alert.alert('Aransın mı?', item.phone, [
+                  Alert.alert(tx('Aransın mı?'), item.phone, [
                     { text: 'İptal', style: 'cancel' },
                     { text: 'Ara', onPress: () => Linking.openURL('tel:' + item.phone.replace(/\s/g, '')) },
                   ]);
@@ -342,7 +344,7 @@ export default function BusinessListScreen({ navigation }) {
             thumbStyle={styles.cardThumb}
           />
         </View>
-        <Text style={styles.rezervasyonHint}>Rezervasyon için dokunun</Text>
+        <Text style={styles.rezervasyonHint}>{tx('Rezervasyon için dokunun')}</Text>
       </TouchableOpacity>
     );
   };
@@ -351,49 +353,50 @@ export default function BusinessListScreen({ navigation }) {
     <View style={styles.listHeaderRoot}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Geri</Text>
+          <Text style={styles.backText}>← {tx('Geri')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Rezervasyon</Text>
+        <Text style={styles.title}>{tx('Rezervasyon')}</Text>
         <Text style={styles.subtitle}>
-          İlçe ve mahalleyle süzün; kartlara dokunarak tarih/saat seçip talep gönderin. Listeyi kaydırarak filtre alanını yukarı alabilirsiniz.
+          {tx('İlçe ve mahalleyle süzün; kartlara dokunarak tarih/saat seçip talep gönderin. Listeyi kaydırarak filtre alanını yukarı alabilirsiniz.')}
         </Text>
         {appUser?.specialDayDiscountToday ? (
           <View style={styles.specialDayBanner}>
             <Text style={styles.specialDayBannerText}>
-              🎉 Bugün özel gününüz — tüm işletmelerde %{appUser.specialDayDiscountPercent || 10} indirim.
-              Rezervasyon sırasında üye numaranızı gösterin.
+              {tx('🎉 Bugün özel gününüz — tüm işletmelerde %{percent} indirim. Rezervasyon sırasında üye numaranızı gösterin.', {
+                percent: appUser.specialDayDiscountPercent || 10,
+              })}
             </Text>
           </View>
         ) : null}
       </View>
 
       <View style={styles.filterSection}>
-        <Text style={styles.filterTitle}>Filtre (yukarı kaydırılabilir)</Text>
+        <Text style={styles.filterTitle}>{tx('Filtre (yukarı kaydırılabilir)')}</Text>
 
-        <Text style={styles.filterLabel}>İlçe</Text>
+        <Text style={styles.filterLabel}>{tx('İlçe')}</Text>
         <TouchableOpacity
           style={styles.selectTouch}
           onPress={() => setDistrictModal(true)}
         >
           <Text style={[styles.selectText, !district && styles.selectPlaceholder]}>
-            {district || 'Tümü'}
+            {district || tx('Tümü')}
           </Text>
           <Text style={styles.selectArrow}>▼</Text>
         </TouchableOpacity>
 
-        <Text style={styles.filterLabel}>Mahalle</Text>
+        <Text style={styles.filterLabel}>{tx('Mahalle')}</Text>
         <TouchableOpacity
           style={styles.selectTouch}
           onPress={() => district && setNeighborhoodModal(true)}
           disabled={!district}
         >
           <Text style={[styles.selectText, !neighborhood && styles.selectPlaceholder]}>
-            {neighborhood || 'Tümü'}
+            {neighborhood || tx('Tümü')}
           </Text>
           <Text style={styles.selectArrow}>▼</Text>
         </TouchableOpacity>
 
-        <Text style={styles.filterLabel}>Faaliyet türü</Text>
+        <Text style={styles.filterLabel}>{tx('Faaliyet türü')}</Text>
         <ScrollView
           horizontal
           nestedScrollEnabled
@@ -407,7 +410,7 @@ export default function BusinessListScreen({ navigation }) {
             onPress={() => setActivityField('')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.chipText, activityField === '' && styles.chipTextActive]}>Hepsi</Text>
+            <Text style={[styles.chipText, activityField === '' && styles.chipTextActive]}>{tx('Hepsi')}</Text>
           </TouchableOpacity>
           {BUSINESS_ACTIVITY_FILTER_OPTIONS.map((a) => (
             <TouchableOpacity
@@ -417,7 +420,7 @@ export default function BusinessListScreen({ navigation }) {
               activeOpacity={0.7}
             >
               <Text style={[styles.chipText, activityField === a.id && styles.chipTextActive]}>
-                {a.icon ? `${a.icon} ` : ''}{a.label}
+                {a.icon ? `${a.icon} ` : ''}{tx(a.label)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -431,20 +434,20 @@ export default function BusinessListScreen({ navigation }) {
           <View style={[styles.checkbox, hasChargingStation && styles.checkboxChecked]}>
             {hasChargingStation ? <Text style={styles.checkboxTick}>✓</Text> : null}
           </View>
-          <Text style={styles.checkboxLabel}>Elektrikli araç şarjı</Text>
+          <Text style={styles.checkboxLabel}>{tx('Elektrikli araç şarjı')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.filterBtn} onPress={applyFilter} disabled={loading}>
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.filterBtnText}>Filtrele / Listele</Text>
+            <Text style={styles.filterBtnText}>{tx('Filtrele / Listele')}</Text>
           )}
         </TouchableOpacity>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </View>
 
-      {viewMode === 'list' ? <Text style={styles.listSectionLabel}>İşletmeler</Text> : null}
+      {viewMode === 'list' ? <Text style={styles.listSectionLabel}>{tx('İşletmeler')}</Text> : null}
     </View>
   );
 
@@ -478,14 +481,14 @@ export default function BusinessListScreen({ navigation }) {
           businesses.length === 0 && !loading ? styles.listContentGrow : null,
         ]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />
         }
         ListEmptyComponent={
           !loading ? (
             <Text style={styles.emptyText}>
               {district || neighborhood || activityField || hasChargingStation
-                ? 'Bu filtreye uygun işletme yok.'
-                : 'Henüz kayıtlı işletme yok. Admin panelinden veya uygulama üzerinden işletme eklenebilir.'}
+                ? tx('Bu filtreye uygun işletme yok.')
+                : tx('Henüz kayıtlı işletme yok. Admin panelinden veya uygulama üzerinden işletme eklenebilir.')}
             </Text>
           ) : null
         }
@@ -507,7 +510,7 @@ export default function BusinessListScreen({ navigation }) {
             </Text>
             <ScrollView style={styles.reservationForm} keyboardShouldPersistTaps="handled">
               <View style={styles.reservationUserBlock}>
-                <Text style={styles.reservationLabel}>Rezervasyon yapan</Text>
+                <Text style={styles.reservationLabel}>{tx('Rezervasyon yapan')}</Text>
                 <Text style={styles.reservationUserText}>{[appUser?.name, appUser?.surname].filter(Boolean).join(' ')}</Text>
                 {appUser?.phone ? <Text style={styles.reservationUserSub}>📞 {appUser.phone}</Text> : null}
               </View>
@@ -535,7 +538,7 @@ export default function BusinessListScreen({ navigation }) {
                 keyboardType="number-pad"
                 placeholder="0"
               />
-              <Text style={styles.reservationLabel}>Tarih</Text>
+              <Text style={styles.reservationLabel}>{tx('Tarih')}</Text>
               <TouchableOpacity style={styles.selectTouch} onPress={() => setDatePickerOpen(!datePickerOpen)}>
                 <Text style={styles.selectText}>{reservationDate ? (DATE_OPTIONS.find((o) => o.key === reservationDate)?.label || reservationDate) : 'Tarih seçin'}</Text>
                 <Text style={styles.selectArrow}>▼</Text>
@@ -569,14 +572,14 @@ export default function BusinessListScreen({ navigation }) {
               ) : null}
               {selectedBusiness?.activityField === 'tekne_turu' ? (
                 <View style={styles.tekneTuruSlotBlock}>
-                  <Text style={styles.reservationLabel}>Tur saati (işletme tarafından belirlenir)</Text>
+                  <Text style={styles.reservationLabel}>{tx('Tur saati (işletme tarafından belirlenir)')}</Text>
                   <Text style={styles.tekneTuruSlotText}>
                     Liman çıkış: {selectedBusiness.limanCikisSaati || '09:00'} · Geliş: {selectedBusiness.limanGelisSaati || '18:00'}
                   </Text>
                 </View>
               ) : (
                 <>
-                  <Text style={styles.reservationLabel}>Saat</Text>
+                  <Text style={styles.reservationLabel}>{tx('Saat')}</Text>
                   <TouchableOpacity
                     style={styles.selectTouch}
                     onPress={() => availableReservationSlots.length > 0 && setSlotPickerOpen(!slotPickerOpen)}
@@ -608,10 +611,10 @@ export default function BusinessListScreen({ navigation }) {
             </ScrollView>
             <View style={styles.reservationActions}>
               <TouchableOpacity style={styles.reservationCancelBtn} onPress={() => { setReservationModalVisible(false); setSelectedBusiness(null); }}>
-                <Text style={styles.reservationCancelText}>İptal</Text>
+                <Text style={styles.reservationCancelText}>{tx('İptal')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.reservationSubmitBtn} onPress={sendReservationRequest} disabled={reservationSending}>
-                {reservationSending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.reservationSubmitText}>Talep gönder</Text>}
+                {reservationSending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.reservationSubmitText}>{tx('Talep gönder')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -621,9 +624,9 @@ export default function BusinessListScreen({ navigation }) {
       <Modal visible={districtModal} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDistrictModal(false)}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>İlçe seçin</Text>
+            <Text style={styles.modalTitle}>{tx('İlçe seçin')}</Text>
             <TouchableOpacity style={styles.modalItem} onPress={() => { setDistrict(''); setNeighborhood(''); setDistrictModal(false); }}>
-              <Text style={styles.modalItemText}>Tümü</Text>
+              <Text style={styles.modalItemText}>{tx('Tümü')}</Text>
             </TouchableOpacity>
             <ScrollView style={styles.modalScroll}>
               {districtsList.map((d) => (
@@ -637,7 +640,7 @@ export default function BusinessListScreen({ navigation }) {
               ))}
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={() => setDistrictModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -646,9 +649,9 @@ export default function BusinessListScreen({ navigation }) {
       <Modal visible={neighborhoodModal} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setNeighborhoodModal(false)}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Mahalle seçin</Text>
+            <Text style={styles.modalTitle}>{tx('Mahalle seçin')}</Text>
             <TouchableOpacity style={styles.modalItem} onPress={() => { setNeighborhood(''); setNeighborhoodModal(false); }}>
-              <Text style={styles.modalItemText}>Tümü</Text>
+              <Text style={styles.modalItemText}>{tx('Tümü')}</Text>
             </TouchableOpacity>
             <ScrollView style={styles.modalScroll}>
               {neighborhoodsList.map((n) => (
@@ -662,7 +665,7 @@ export default function BusinessListScreen({ navigation }) {
               ))}
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={() => setNeighborhoodModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -672,10 +675,10 @@ export default function BusinessListScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  listHeaderRoot: { backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
+  listHeaderRoot: { backgroundColor: '#F4F1EB' },
   header: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingTop: 52,
     paddingBottom: 14,
     paddingHorizontal: 20,
@@ -713,7 +716,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F1EB',
     borderWidth: 1,
     borderColor: '#e0e0e0',
     borderRadius: 10,
@@ -739,7 +742,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     marginRight: 8,
   },
-  chipActive: { backgroundColor: '#34C759', borderColor: '#34C759' },
+  chipActive: { backgroundColor: '#1B4D4A', borderColor: '#1B4D4A' },
   chipText: { fontSize: 13, color: '#555', fontWeight: '500' },
   chipTextActive: { color: '#fff' },
   checkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
@@ -753,12 +756,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: { borderColor: '#34C759', backgroundColor: '#34C759' },
+  checkboxChecked: { borderColor: '#1B4D4A', backgroundColor: '#1B4D4A' },
   checkboxTick: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   checkboxLabel: { fontSize: 14, color: '#333', flex: 1 },
   filterBtn: {
     marginTop: 12,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
@@ -805,7 +808,7 @@ const styles = StyleSheet.create({
   },
   cardImageHint: {
     fontSize: 10,
-    color: '#34C759',
+    color: '#1B4D4A',
     marginTop: 4,
   },
   imageModalOverlay: {
@@ -830,7 +833,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     borderRadius: 10,
   },
   imageModalCloseText: {
@@ -839,13 +842,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   businessName: { fontSize: 17, fontWeight: '700', color: '#333', marginBottom: 4 },
-  activity: { fontSize: 14, color: '#34C759', fontWeight: '600', marginBottom: 6 },
+  activity: { fontSize: 14, color: '#1B4D4A', fontWeight: '600', marginBottom: 6 },
   phone: { fontSize: 14, color: '#555', marginBottom: 2 },
   phoneTouch: { alignSelf: 'flex-start', marginBottom: 2 },
   address: { fontSize: 13, color: '#666', marginBottom: 2 },
   charging: { fontSize: 12, color: '#666', marginTop: 4 },
-  link: { fontSize: 12, color: '#34C759', marginTop: 4 },
-  rezervasyonHint: { fontSize: 12, color: '#34C759', marginTop: 8, fontWeight: '600' },
+  link: { fontSize: 12, color: '#1B4D4A', marginTop: 4 },
+  rezervasyonHint: { fontSize: 12, color: '#1B4D4A', marginTop: 8, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalBox: { backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '70%', paddingBottom: 24 },
   modalTitle: { fontSize: 18, fontWeight: '600', color: '#333', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
@@ -853,7 +856,7 @@ const styles = StyleSheet.create({
   modalItem: { padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
   modalItemText: { fontSize: 16, color: '#333' },
   modalClose: { padding: 16, alignItems: 'center' },
-  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#34C759' },
+  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
   reservationOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
   reservationModalBox: { backgroundColor: '#fff', borderRadius: 16, maxHeight: '85%' },
   reservationForm: { padding: 20, maxHeight: 380 },
@@ -865,12 +868,12 @@ const styles = StyleSheet.create({
   reservationActions: { flexDirection: 'row', padding: 20, gap: 12, borderTopWidth: 1, borderTopColor: '#eee' },
   reservationCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#eee', alignItems: 'center' },
   reservationCancelText: { fontSize: 16, fontWeight: '600', color: '#666' },
-  reservationSubmitBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#34C759', alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  reservationSubmitBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#1B4D4A', alignItems: 'center', justifyContent: 'center', minHeight: 48 },
   reservationSubmitText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   slotScroll: { maxHeight: 160, marginTop: 4 },
   slotItem: { padding: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
   slotItemText: { fontSize: 15, color: '#333' },
-  slotItemDisabled: { backgroundColor: '#f5f5f5', opacity: 0.7 },
+  slotItemDisabled: { backgroundColor: '#F4F1EB', opacity: 0.7 },
   slotItemTextDisabled: { color: '#999' },
   hoursHint: { fontSize: 12, color: '#666', marginTop: 8, lineHeight: 17 },
   closedHint: { fontSize: 12, color: '#dc3545', marginTop: 6 },

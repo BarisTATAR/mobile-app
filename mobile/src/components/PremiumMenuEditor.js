@@ -11,10 +11,13 @@ import {
 import { apiUrl, apiFetch } from '../config/api';
 import { mediaFilesFromItem } from '../utils/listingMedia';
 import ListingMediaFormField from './ListingMediaFormField';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 const MENU_OWNER_TYPES = new Set(['isletme', 'esnaf', 'cekici', 'lastikci', 'taksi', 'yoresel_etkinlik']);
 
 export default function PremiumMenuEditor({ ownerType, ownerId, loginKey }) {
+  const { tx } = useLanguage();
   const [mediaFiles, setMediaFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,14 +61,14 @@ export default function PremiumMenuEditor({ ownerType, ownerId, loginKey }) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        Alert.alert('Başarılı', 'Dosyalar güncellendi.');
+        Alert.alert(tx('Başarılı'), 'Dosyalar güncellendi.');
         if (Array.isArray(data.mediaFiles)) setMediaFiles(data.mediaFiles);
         else setMediaFiles(mediaFilesFromItem(data));
       } else {
-        Alert.alert('Hata', data.error || 'Kaydedilemedi');
+        Alert.alert(tx('Hata'), data.error || 'Kaydedilemedi');
       }
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası');
     } finally {
       setSaving(false);
     }
@@ -82,14 +85,14 @@ export default function PremiumMenuEditor({ ownerType, ownerId, loginKey }) {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color="#34C759" size="large" />
+        <ActivityIndicator color="#1B4D4A" size="large" />
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Fotoğraf / PDF</Text>
+      <Text style={styles.title}>{tx('Fotoğraf / PDF')}</Text>
       <Text style={styles.subtitle}>
         Kullanıcı listesinde görünen dosyalar. Görüntüleyebilir, kaldırabilir veya yeni ekleyebilirsiniz. Kaldırma ve ekleme için Kaydet'e basın.
       </Text>
@@ -104,7 +107,7 @@ export default function PremiumMenuEditor({ ownerType, ownerId, loginKey }) {
         {saving ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Text style={styles.saveBtnText}>Kaydet</Text>
+          <Text style={styles.saveBtnText}>{tx('Kaydet')}</Text>
         )}
       </TouchableOpacity>
     </ScrollView>

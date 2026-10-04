@@ -12,6 +12,7 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config/api';
 import {
   getProvinces,
@@ -23,10 +24,15 @@ import { digitsOnly } from '../utils/phoneInput';
 import { parseTrDateParts } from '../utils/dateInput';
 import DateSlashInput from '../components/DateSlashInput';
 import { warmupAfterFirstPaint } from '../services/appWarmup';
+import { useLanguage } from '../i18n/LanguageContext';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { rememberAccountLanguage } from '../i18n/userLanguageStore';
+
 
 const KVKK_TEXT_VERSION = '2026-09-23';
 
 export default function SignUpScreen({ navigation }) {
+  const { tx, t, lang, setLang } = useLanguage();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [passwordRepeat, setPasswordRepeat] = useState('');
@@ -65,6 +71,17 @@ export default function SignUpScreen({ navigation }) {
       () => {}
     );
   };
+
+  useEffect(() => {
+    return () => {
+      AsyncStorage.getItem('appUser')
+        .then((raw) => {
+          const user = raw ? JSON.parse(raw) : null;
+          if (!user?.id) setLang('tr');
+        })
+        .catch(() => {});
+    };
+  }, [setLang]);
 
   // İlleri yükle, varsayılan Muğla için ilçeleri doldur
   useEffect(() => {
@@ -113,28 +130,28 @@ export default function SignUpScreen({ navigation }) {
   const handleSignUp = async () => {
     // Önce şifre eşleşme kontrolü — eşleşmiyorsa kayıt onaylanmasın
     if (password !== passwordRepeat) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor. Lütfen aynı şifreyi iki kez girin.');
+      Alert.alert(tx('Hata'), 'Şifreler eşleşmiyor. Lütfen aynı şifreyi iki kez girin.');
       return;
     }
 
     if (!username || !password || !passwordRepeat || !name || !surname || !phone || !dateOfBirth || !specialDay || !city || !district || !neighborhood) {
-      Alert.alert('Hata', 'Lütfen tüm alanları doldurun');
+      Alert.alert(tx('Hata'), 'Lütfen tüm alanları doldurun');
       return;
     }
 
     const birth = parseTrDateParts(dateOfBirth);
     const special = parseTrDateParts(specialDay);
     if (!birth) {
-      Alert.alert('Hata', 'Doğum tarihini GG/AA/YYYY olarak girin.');
+      Alert.alert(tx('Hata'), 'Doğum tarihini GG/AA/YYYY olarak girin.');
       return;
     }
     if (!special) {
-      Alert.alert('Hata', 'Özel gün tarihini GG/AA/YYYY olarak girin.');
+      Alert.alert(tx('Hata'), 'Özel gün tarihini GG/AA/YYYY olarak girin.');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Hata', 'Şifre en az 6 karakter olmalıdır');
+      Alert.alert(tx('Hata'), 'Şifre en az 6 karakter olmalıdır');
       return;
     }
 
@@ -172,24 +189,27 @@ export default function SignUpScreen({ navigation }) {
             location: true,
             textVersion: KVKK_TEXT_VERSION,
           },
+          language: lang === 'en' ? 'en' : 'tr',
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert('Başarılı', 'Kayıt işlemi başarıyla tamamlandı!', [
+        const chosen = lang === 'en' ? 'en' : 'tr';
+        await rememberAccountLanguage(username.trim(), data.user?.language || chosen);
+        Alert.alert(tx('Başarılı'), 'Kayıt işlemi başarıyla tamamlandı!', [
           {
             text: 'Tamam',
             onPress: () => navigation.replace('Login'),
           },
         ]);
       } else {
-        Alert.alert('Hata', data.error || 'Kayıt sırasında bir hata oluştu');
+        Alert.alert(tx('Hata'), data.error || 'Kayıt sırasında bir hata oluştu');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      Alert.alert('Hata', 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
+      Alert.alert(tx('Hata'), 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
     } finally {
       setLoading(false);
     }
@@ -207,16 +227,21 @@ export default function SignUpScreen({ navigation }) {
         >
           <View style={styles.content}>
             <View style={styles.header}>
-              <Text style={styles.title}>Kayıt Ol</Text>
-              <Text style={styles.subtitle}>Hesabınızı oluşturun</Text>
+              <Text style={styles.title}>{tx('Kayıt Ol')}</Text>
+              <Text style={styles.subtitle}>{tx('Hesabınızı oluşturun')}</Text>
             </View>
 
             <View style={styles.formContainer}>
+              <View style={styles.langBlock}>
+                <Text style={styles.label}>{tx('Uygulama dili')}</Text>
+                <Text style={styles.langHint}>{tx('Kayıt olduktan sonra dil değiştirilemez.')}</Text>
+                <LanguageSwitcher />
+              </View>
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Kullanıcı Adı</Text>
+                <Text style={styles.label}>{tx('Kullanıcı Adı')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Kullanıcı adınızı girin"
+                  placeholder={tx('Kullanıcı adınızı girin')}
                   placeholderTextColor="#999"
                   value={username}
                   onChangeText={setUsername}
@@ -226,7 +251,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View ref={passwordContainerRef} style={styles.inputContainer}>
-                <Text style={styles.label}>Şifre</Text>
+                <Text style={styles.label}>{tx('Şifre')}</Text>
                 <TextInput
                   testID="signup-password"
                   style={styles.input}
@@ -251,14 +276,14 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View ref={passwordRepeatContainerRef} style={styles.inputContainer}>
-                <Text style={styles.label}>Şifre (Tekrar)</Text>
+                <Text style={styles.label}>{tx('Şifre (Tekrar)')}</Text>
                 <TextInput
                   style={[
                     styles.input,
                     passwordRepeatTouched && !passwordsMatch && styles.inputError,
                   ]}
                   testID="signup-password-repeat"
-                  placeholder="Şifrenizi tekrar girin"
+                  placeholder={tx('Şifrenizi tekrar girin')}
                   placeholderTextColor="#999"
                   value={passwordRepeat}
                   onChangeText={setPasswordRepeat}
@@ -268,7 +293,7 @@ export default function SignUpScreen({ navigation }) {
                   onFocus={() => scrollFieldIntoView(passwordRepeatContainerRef)}
                 />
                 {passwordRepeatTouched && !passwordsMatch && (
-                  <Text style={styles.errorText}>Şifreler eşleşmiyor</Text>
+                  <Text style={styles.errorText}>{tx('Şifreler eşleşmiyor')}</Text>
                 )}
                 <TouchableOpacity
                   style={styles.passwordToggle}
@@ -282,7 +307,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>İsim</Text>
+                <Text style={styles.label}>{tx('İsim')}</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="İsminizi girin"
@@ -294,7 +319,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Soyisim</Text>
+                <Text style={styles.label}>{tx('Soyisim')}</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Soyisminizi girin"
@@ -306,10 +331,10 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Cep Telefonu</Text>
+                <Text style={styles.label}>{tx('Cep Telefonu')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Sadece rakam, örn. 05551234567"
+                  placeholder={tx('Sadece rakam, örn. 05551234567')}
                   placeholderTextColor="#999"
                   value={phone}
                   onChangeText={(t) => setPhone(digitsOnly(t))}
@@ -318,7 +343,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Doğum Tarihi</Text>
+                <Text style={styles.label}>{tx('Doğum Tarihi')}</Text>
                 <DateSlashInput
                   testID="signup-birth-date"
                   value={dateOfBirth}
@@ -327,7 +352,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Yıldönümü / Özel Gün</Text>
+                <Text style={styles.label}>{tx('Yıldönümü / Özel Gün')}</Text>
                 <DateSlashInput
                   testID="signup-special-day"
                   value={specialDay}
@@ -336,7 +361,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.sectionLabel}>
-                <Text style={styles.sectionLabelText}>Adres</Text>
+                <Text style={styles.sectionLabelText}>{tx('Adres')}</Text>
               </View>
 
               <View style={styles.inputContainer}>
@@ -354,7 +379,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>İlçe</Text>
+                <Text style={styles.label}>{tx('İlçe')}</Text>
                 <TouchableOpacity
                   style={styles.selectTouch}
                   onPress={() => city && setShowDistrictModal(true)}
@@ -368,7 +393,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Mahalle</Text>
+                <Text style={styles.label}>{tx('Mahalle')}</Text>
                 <TouchableOpacity
                   style={styles.selectTouch}
                   onPress={() => district && setShowNeighborhoodModal(true)}
@@ -382,7 +407,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.kvkkBox}>
-                <Text style={styles.kvkkTitle}>KVKK Aydınlatma ve Açık Rıza</Text>
+                <Text style={styles.kvkkTitle}>{tx('KVKK Aydınlatma ve Açık Rıza')}</Text>
                 <Text style={styles.kvkkIntro}>
                   6698 sayılı KVKK kapsamında kişisel verileriniz, üyelik ve uygulama hizmetleri için işlenir.
                   Aşağıdaki açık rızalar kayıt için zorunludur.
@@ -412,7 +437,7 @@ export default function SignUpScreen({ navigation }) {
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setShowKvkkModal(true)} activeOpacity={0.8}>
-                  <Text style={styles.kvkkLink}>Aydınlatma metnini oku</Text>
+                  <Text style={styles.kvkkLink}>{tx('Aydınlatma metnini oku')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -422,7 +447,7 @@ export default function SignUpScreen({ navigation }) {
                   onPress={() => navigation.goBack()}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.backButtonText}>Geri Dön</Text>
+                  <Text style={styles.backButtonText}>{tx('Geri Dön')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -438,7 +463,7 @@ export default function SignUpScreen({ navigation }) {
                   {loading ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.signUpButtonText}>Kayıt Ol</Text>
+                    <Text style={styles.signUpButtonText}>{tx('Kayıt Ol')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -454,7 +479,7 @@ export default function SignUpScreen({ navigation }) {
             onPress={() => setShowCityModal(false)}
           />
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>İl Seçin</Text>
+            <Text style={styles.modalTitle}>{tx('İl Seçin')}</Text>
             <FlatList
               data={provinces}
               keyExtractor={(item) => String(item.id)}
@@ -471,7 +496,7 @@ export default function SignUpScreen({ navigation }) {
               )}
             />
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowCityModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -485,7 +510,7 @@ export default function SignUpScreen({ navigation }) {
             onPress={() => setShowDistrictModal(false)}
           />
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>İlçe Seçin</Text>
+            <Text style={styles.modalTitle}>{tx('İlçe Seçin')}</Text>
             <FlatList
               data={districtsList}
               keyExtractor={(item) => String(item.id)}
@@ -502,7 +527,7 @@ export default function SignUpScreen({ navigation }) {
               )}
             />
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowDistrictModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -516,26 +541,16 @@ export default function SignUpScreen({ navigation }) {
             onPress={() => setShowKvkkModal(false)}
           />
           <View style={styles.kvkkModalContent}>
-            <Text style={styles.modalTitle}>KVKK Aydınlatma Metni</Text>
+            <Text style={styles.modalTitle}>{tx('KVKK Aydınlatma Metni')}</Text>
             <ScrollView style={styles.kvkkModalScroll} contentContainerStyle={styles.kvkkModalScrollContent}>
-              <Text style={styles.kvkkModalText}>
-                48 App, 6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca veri sorumlusu sıfatıyla hareket eder.
-              </Text>
-              <Text style={styles.kvkkModalText}>
-                Kayıt sırasında verdiğiniz ad, soyad, kullanıcı adı, telefon, doğum tarihi, özel gün ve adres bilgileriniz üyelik hesabınızın oluşturulması, rezervasyon ve yöresel etkinlik taleplerinin iletilmesi, üye numarası ile indirim kontrolü yapılması amacıyla işlenir.
-              </Text>
-              <Text style={styles.kvkkModalText}>
-                Cep telefonu numaranız, rezervasyon veya talep oluşturduğunuz işletmelerin sizinle iletişim kurabilmesi ve üyeliğinizin doğrulanması için ilgili işletmelerle paylaşılabilir. Bu paylaşım, verdiğiniz açık rızaya dayanır.
-              </Text>
-              <Text style={styles.kvkkModalText}>
-                Konum bilginiz yalnızca siz izin verdiğinizde; nöbetçi eczane, hava durumu ve haritada yakındaki işletmeleri göstermek için kullanılır. Konum zorunlu bir kayıt alanı değildir; ancak bu hizmetler için açık rızanız alınır.
-              </Text>
-              <Text style={styles.kvkkModalText}>
-                Verileriniz, yasal saklama süreleri ve hizmetin devamı için gerekli olduğu sürece muhafaza edilir. KVKK kapsamındaki erişim, düzeltme, silme ve rızayı geri çekme talepleriniz için uygulama içinden veya veri sorumlusu ile iletişime geçebilirsiniz. Rızanızı geri çekmeniz, rıza tarihinden sonraki işlemleri etkiler.
-              </Text>
+              <Text style={styles.kvkkModalText}>{t('kvkk.p1')}</Text>
+              <Text style={styles.kvkkModalText}>{t('kvkk.p2')}</Text>
+              <Text style={styles.kvkkModalText}>{t('kvkk.p3')}</Text>
+              <Text style={styles.kvkkModalText}>{t('kvkk.p4')}</Text>
+              <Text style={styles.kvkkModalText}>{t('kvkk.p5')}</Text>
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowKvkkModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -549,7 +564,7 @@ export default function SignUpScreen({ navigation }) {
             onPress={() => setShowNeighborhoodModal(false)}
           />
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Mahalle Seçin</Text>
+            <Text style={styles.modalTitle}>{tx('Mahalle Seçin')}</Text>
             <FlatList
               data={neighborhoodsList}
               keyExtractor={(item) => String(item.id)}
@@ -566,7 +581,7 @@ export default function SignUpScreen({ navigation }) {
               )}
             />
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowNeighborhoodModal(false)}>
-              <Text style={styles.modalCloseText}>Kapat</Text>
+              <Text style={styles.modalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -578,7 +593,7 @@ export default function SignUpScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F1EB',
   },
   scrollView: {
     flex: 1,
@@ -591,6 +606,15 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 40,
   },
+  langBlock: {
+    marginBottom: 22,
+  },
+  langHint: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 10,
+    lineHeight: 18,
+  },
   header: {
     alignItems: 'center',
     marginBottom: 24,
@@ -598,7 +622,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#34C759',
+    color: '#1B4D4A',
     marginBottom: 10,
   },
   subtitle: {
@@ -644,7 +668,7 @@ const styles = StyleSheet.create({
   },
   passwordToggleText: {
     fontSize: 14,
-    color: '#34C759',
+    color: '#1B4D4A',
     fontWeight: '600',
   },
   sectionLabel: {
@@ -719,7 +743,7 @@ const styles = StyleSheet.create({
   modalCloseText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#34C759',
+    color: '#1B4D4A',
   },
   kvkkBox: {
     backgroundColor: '#fff',
@@ -751,7 +775,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
     marginRight: 10,
     marginTop: 2,
     alignItems: 'center',
@@ -759,7 +783,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   checkboxChecked: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
   },
   checkboxTick: {
     color: '#fff',
@@ -776,7 +800,7 @@ const styles = StyleSheet.create({
   kvkkLink: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#34C759',
+    color: '#1B4D4A',
     marginTop: 2,
   },
   kvkkModalContent: {
@@ -807,7 +831,7 @@ const styles = StyleSheet.create({
   },
   signUpButton: {
     flex: 1,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',

@@ -11,6 +11,9 @@ import IsIlanlariListScreen from './IsIlanlariListScreen';
 import BusinessListScreen from './BusinessListScreen';
 import EtkinliklerScreen from './EtkinliklerScreen';
 import WeatherScreen from './WeatherScreen';
+import NearbySortButton from '../components/NearbySortButton';
+import { LanguageProvider, LANG_STORAGE_KEY } from '../i18n/LanguageContext';
+import { getCurrentPosition, reverseGeocode } from '../services/locationService';
 
 jest.mock('../services/turkeyAddressService', () => ({
   DEFAULT_CITY: 'Muğla',
@@ -59,6 +62,30 @@ describe('list and content screens', () => {
     expect(render(<BusinessListScreen navigation={nav()} />).getByText('Rezervasyon')).toBeTruthy();
   });
 
+  test('English translates list descriptions, filters and nearby sort', async () => {
+    await AsyncStorage.setItem(LANG_STORAGE_KEY, 'en');
+    const { findByText } = render(
+      <LanguageProvider>
+        <BusinessListScreen navigation={nav()} />
+      </LanguageProvider>
+    );
+    expect(await findByText('Reservations')).toBeTruthy();
+    expect(
+      await findByText(
+        'Filter by district and neighborhood; tap a card to pick date/time and send a request. Scroll the list to move the filters up.'
+      )
+    ).toBeTruthy();
+    expect(await findByText('Filter (swipe up)')).toBeTruthy();
+    expect(await findByText('Activity type')).toBeTruthy();
+    const nearby = render(
+      <LanguageProvider>
+        <NearbySortButton active={false} loading={false} onPress={() => {}} />
+      </LanguageProvider>
+    );
+    expect(await nearby.findByText('Show nearest first')).toBeTruthy();
+    await AsyncStorage.removeItem(LANG_STORAGE_KEY);
+  });
+
   test('guest cannot open reservation form', async () => {
     global.fetch.mockImplementation(async (url) => {
       if (String(url).includes('/api/businesses')) {
@@ -105,8 +132,73 @@ describe('list and content screens', () => {
     await AsyncStorage.removeItem('appUser');
   });
 
+  test('member sees pay button when reservation fee is required', async () => {
+    global.fetch.mockImplementation(async (url) => {
+      if (String(url).includes('/api/payments/yoresel/status')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            fee: 150,
+            required: true,
+            paid: false,
+            paymentConfigured: true,
+          }),
+        };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    });
+    await AsyncStorage.setItem(
+      'appUser',
+      JSON.stringify({ id: 'u1', name: 'Ali', surname: 'Yılmaz', username: 'ali' })
+    );
+    const { findByTestId, getByText } = render(<EtkinliklerScreen navigation={nav()} />);
+    expect(await findByTestId('yoresel-pay-button')).toBeTruthy();
+    expect(getByText('Rezervasyon bedeli')).toBeTruthy();
+    const submit = await findByTestId('yoresel-submit-button');
+    expect(submit.props.accessibilityState?.disabled || submit.props.disabled).toBe(true);
+    await AsyncStorage.removeItem('appUser');
+    global.fetch.mockImplementation(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    }));
+  });
+
   test('Hava durumu title', async () => {
     const { getAllByText } = render(<WeatherScreen navigation={nav()} />);
     expect(getAllByText('Hava Durumu').length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('English weather uses English condition copy', async () => {
+    await AsyncStorage.setItem(LANG_STORAGE_KEY, 'en');
+    getCurrentPosition.mockResolvedValueOnce({ latitude: 37.0, longitude: 28.4 });
+    reverseGeocode.mockResolvedValueOnce({ district: 'Fethiye', neighbourhood: '' });
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        current: {
+          temperature_2m: 22,
+          relative_humidity_2m: 40,
+          weather_code: 0,
+          wind_speed_10m: 12,
+        },
+        hourly: { time: [], temperature_2m: [], weather_code: [] },
+        daily: { time: [], temperature_2m_max: [], temperature_2m_min: [], weather_code: [] },
+      }),
+    });
+    const { findByText, queryByText } = render(
+      <LanguageProvider>
+        <WeatherScreen navigation={nav()} />
+      </LanguageProvider>
+    );
+    expect(await findByText('Weather')).toBeTruthy();
+    expect(await findByText('Clear')).toBeTruthy();
+    expect(await findByText('Humidity: 40%')).toBeTruthy();
+    expect(await findByText('Wind: 12 km/h')).toBeTruthy();
+    expect(await findByText('Location: Fethiye')).toBeTruthy();
+    expect(queryByText('Açık')).toBeNull();
+    expect(queryByText(/Nem:/)).toBeNull();
+    await AsyncStorage.removeItem(LANG_STORAGE_KEY);
   });
 });

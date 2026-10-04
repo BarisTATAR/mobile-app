@@ -40,6 +40,10 @@ async function ensureUserMemberId(userDoc) {
   return userDoc.memberId;
 }
 
+function normalizeUserLanguage(raw) {
+  return raw === 'en' ? 'en' : 'tr';
+}
+
 function formatUserForClient(userDoc) {
   if (!userDoc) return null;
   const specialDayDiscountToday = isTodayUsersSpecialDay(userDoc.specialDay);
@@ -50,6 +54,7 @@ function formatUserForClient(userDoc) {
     name: userDoc.name,
     surname: userDoc.surname,
     phone: userDoc.phone || '',
+    language: normalizeUserLanguage(userDoc.language),
     address: {
       city: userDoc.address?.city != null ? String(userDoc.address.city).trim() : '',
       district: userDoc.address?.district != null ? String(userDoc.address.district).trim() : '',
@@ -66,4 +71,5 @@ module.exports = {
   generateUniqueMemberId,
   ensureUserMemberId,
   formatUserForClient,
+  normalizeUserLanguage,
 };

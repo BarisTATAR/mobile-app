@@ -30,6 +30,8 @@ import {
 import { digitsOnly } from '../utils/phoneInput';
 import { LIMAN_UYE_SAAT_SECENEKLERI, normalizeLimanSaatForUyeList } from '../utils/limanSaatleri';
 import { yoreselTimeSlotLabel } from '../constants/yoreselTimeSlots';
+import { useLanguage } from '../i18n/LanguageContext';
+
 
 // Muğla ilçeleri (API yanıt vermezse veya henüz yüklenmediyse kullanılır)
 const MUGLA_DISTRICTS_FALLBACK = ['Bodrum', 'Dalaman', 'Datça', 'Fethiye', 'Kavaklıdere', 'Köyceğiz', 'Marmaris', 'Menteşe', 'Milas', 'Ortaca', 'Seydikemer', 'Ula', 'Yatağan'];
@@ -488,6 +490,7 @@ function getItemTitle(type, item) {
 }
 
 export default function AdminMainScreen({ route, navigation }) {
+  const { tx } = useLanguage();
   const [selectedType, setSelectedType] = useState('isletme');
   const selectedTypeRef = useRef(selectedType);
   const [list, setList] = useState([]);
@@ -495,6 +498,9 @@ export default function AdminMainScreen({ route, navigation }) {
   const [homeImageSaving, setHomeImageSaving] = useState(false);
   const [homeImageUploading, setHomeImageUploading] = useState(false);
   const [homePhotoModalVisible, setHomePhotoModalVisible] = useState(false);
+  const [yoreselReservationFee, setYoreselReservationFee] = useState('0');
+  const [yoreselFeeSaving, setYoreselFeeSaving] = useState(false);
+  const [yoreselPaymentConfigured, setYoreselPaymentConfigured] = useState(false);
   const [listError, setListError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -562,7 +568,7 @@ export default function AdminMainScreen({ route, navigation }) {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('İzin', 'Galeri erişimi gerekli.');
+        Alert.alert(tx('İzin'), 'Galeri erişimi gerekli.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -588,10 +594,10 @@ export default function AdminMainScreen({ route, navigation }) {
       if (res.ok && data.url) {
         setFormData((prev) => ({ ...prev, imageUrl: data.url }));
       } else {
-        Alert.alert('Hata', data.error || 'Yükleme başarısız.');
+        Alert.alert(tx('Hata'), data.error || 'Yükleme başarısız.');
       }
     } catch (e) {
-      Alert.alert('Hata', 'Fotoğraf yüklenemedi.');
+      Alert.alert(tx('Hata'), 'Fotoğraf yüklenemedi.');
     } finally {
       setImageUploading(false);
     }
@@ -662,11 +668,41 @@ export default function AdminMainScreen({ route, navigation }) {
       const res = await fetch(apiUrl('/api/app-settings'), { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.homeImageUrl != null) setHomeImageUrl(String(data.homeImageUrl).trim());
+      if (res.ok && data.yoreselReservationFee != null) {
+        setYoreselReservationFee(String(data.yoreselReservationFee));
+      }
+      if (res.ok) setYoreselPaymentConfigured(!!data.yoreselPaymentConfigured);
     } catch (e) {
       setHomeImageUrl('');
     }
   }, []);
   useEffect(() => { loadAppSettings(); }, [loadAppSettings]);
+
+  const saveYoreselFee = useCallback(async () => {
+    setYoreselFeeSaving(true);
+    try {
+      const res = await fetch(apiUrl('/api/app-settings'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yoreselReservationFee: yoreselReservationFee }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setYoreselReservationFee(String(data.yoreselReservationFee ?? '0'));
+        setYoreselPaymentConfigured(!!data.yoreselPaymentConfigured);
+        Alert.alert(
+          'Kaydedildi',
+          data.yoreselReservationFee > 0
+            ? `Yöresel rezervasyon bedeli ${data.yoreselReservationFee} TL. Üye bu tutarı kart ile ödeyince Talep gönder açılır.`
+            : 'Bedel 0 TL. Talep göndermek için ödeme istenmez.'
+        );
+      } else Alert.alert(tx('Hata'), data.error || 'Kaydedilemedi.');
+    } catch (e) {
+      Alert.alert(tx('Hata'), 'Bağlantı hatası.');
+    } finally {
+      setYoreselFeeSaving(false);
+    }
+  }, [yoreselReservationFee]);
 
   const saveHomeImage = useCallback(async () => {
     setHomeImageSaving(true);
@@ -679,10 +715,10 @@ export default function AdminMainScreen({ route, navigation }) {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setHomeImageUrl((data.homeImageUrl || '').trim());
-        Alert.alert('Kaydedildi', 'Ana sayfa fotoğrafı güncellendi.');
-      } else Alert.alert('Hata', data.error || 'Kaydedilemedi.');
+        Alert.alert(tx('Kaydedildi'), 'Ana sayfa fotoğrafı güncellendi.');
+      } else Alert.alert(tx('Hata'), data.error || 'Kaydedilemedi.');
     } catch (e) {
-      Alert.alert('Hata', 'Bağlantı hatası.');
+      Alert.alert(tx('Hata'), 'Bağlantı hatası.');
     } finally {
       setHomeImageSaving(false);
     }
@@ -692,7 +728,7 @@ export default function AdminMainScreen({ route, navigation }) {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('İzin', 'Galeri erişimi gerekli.');
+        Alert.alert(tx('İzin'), 'Galeri erişimi gerekli.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -715,11 +751,11 @@ export default function AdminMainScreen({ route, navigation }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ homeImageUrl: data.url }),
         });
-        if (patchRes.ok) Alert.alert('Kaydedildi', 'Ana sayfa fotoğrafı yüklendi ve kaydedildi.');
-        else Alert.alert('Uyarı', 'Fotoğraf yüklendi ancak ayar kaydedilemedi. Kaydet butonuna basın.');
-      } else Alert.alert('Hata', data.error || 'Yükleme başarısız.');
+        if (patchRes.ok) Alert.alert(tx('Kaydedildi'), 'Ana sayfa fotoğrafı yüklendi ve kaydedildi.');
+        else Alert.alert(tx('Uyarı'), 'Fotoğraf yüklendi ancak ayar kaydedilemedi. Kaydet butonuna basın.');
+      } else Alert.alert(tx('Hata'), data.error || 'Yükleme başarısız.');
     } catch (e) {
-      Alert.alert('Hata', 'Fotoğraf yüklenemedi.');
+      Alert.alert(tx('Hata'), 'Fotoğraf yüklenemedi.');
     } finally {
       setHomeImageUploading(false);
     }
@@ -813,7 +849,7 @@ export default function AdminMainScreen({ route, navigation }) {
     if (type === 'neighborhood') {
       const d = listFilterDistrict || '';
       if (!d) {
-        Alert.alert('Önce ilçe seçin', 'Mahalle listesi için ilçe seçmelisiniz.');
+        Alert.alert(tx('Önce ilçe seçin'), 'Mahalle listesi için ilçe seçmelisiniz.');
         setAddressPickerTarget('form');
         return;
       }
@@ -841,7 +877,7 @@ export default function AdminMainScreen({ route, navigation }) {
       const city = formData.addressCity || DEFAULT_CITY;
       const district = formData.addressDistrict || '';
       if (!district) {
-        Alert.alert('Önce ilçe seçin', 'Mahalle listesi için ilçe seçmelisiniz.');
+        Alert.alert(tx('Önce ilçe seçin'), 'Mahalle listesi için ilçe seçmelisiniz.');
         return;
       }
       setNeighborhoodsList([]);
@@ -1046,10 +1082,10 @@ export default function AdminMainScreen({ route, navigation }) {
               if (res.ok) fetchList();
               else {
                 const d = await res.json();
-                Alert.alert('Hata', d.error || 'Silinemedi');
+                Alert.alert(tx('Hata'), d.error || 'Silinemedi');
               }
             } catch (e) {
-              Alert.alert('Hata', 'Bağlantı hatası');
+              Alert.alert(tx('Hata'), 'Bağlantı hatası');
             }
           },
         },
@@ -1105,7 +1141,7 @@ export default function AdminMainScreen({ route, navigation }) {
     } else if (selectedType === 'yoresel_etkinlik') {
       const districtTrim = (formData.addressDistrict || '').trim();
       if (!districtTrim) {
-        Alert.alert('Uyarı', 'İlçe seçin.');
+        Alert.alert(tx('Uyarı'), 'İlçe seçin.');
         return;
       }
       const hasTag =
@@ -1118,21 +1154,21 @@ export default function AdminMainScreen({ route, navigation }) {
         || !!formData.serviceKuafor
         || !!formData.serviceAracKiralama;
       if (!hasTag) {
-        Alert.alert('Uyarı', 'En az bir hizmet alanı işaretleyin.');
+        Alert.alert(tx('Uyarı'), 'En az bir hizmet alanı işaretleyin.');
         return;
       }
       const hasSlot = !!formData.offeredGunduz || !!formData.offeredAksam || !!formData.offeredTamGun;
       if (!hasSlot) {
-        Alert.alert('Uyarı', 'En az bir rezervasyon dilimi işaretleyin (Gündüz / Akşam / Tam gün).');
+        Alert.alert(tx('Uyarı'), 'En az bir rezervasyon dilimi işaretleyin (Gündüz / Akşam / Tam gün).');
         return;
       }
       const pwd = (formData.password || '').trim();
       if (modalMode === 'add' && pwd.length < 6) {
-        Alert.alert('Uyarı', 'Şifre en az 6 karakter olmalı.');
+        Alert.alert(tx('Uyarı'), 'Şifre en az 6 karakter olmalı.');
         return;
       }
       if (modalMode === 'edit' && pwd && pwd.length < 6) {
-        Alert.alert('Uyarı', 'Şifre en az 6 karakter olmalı.');
+        Alert.alert(tx('Uyarı'), 'Şifre en az 6 karakter olmalı.');
         return;
       }
 
@@ -1149,19 +1185,19 @@ export default function AdminMainScreen({ route, navigation }) {
         const mahLines = mahLinesRaw.map((s) => s.trim());
         const mahHasAny = mahLines.some((l) => l.length > 0);
         if (!loginNameTrim) {
-          Alert.alert('Uyarı', 'Giriş kullanıcı adı girin.');
+          Alert.alert(tx('Uyarı'), 'Giriş kullanıcı adı girin.');
           return;
         }
         if (venueLines.length < 2) {
-          Alert.alert('Uyarı', 'Birden fazla mekan için en az iki satır mekan adı yazın.');
+          Alert.alert(tx('Uyarı'), 'Birden fazla mekan için en az iki satır mekan adı yazın.');
           return;
         }
         if (new Set(venueLines).size !== venueLines.length) {
-          Alert.alert('Uyarı', 'Mekan adları tekrar etmemeli (her satır benzersiz olmalı).');
+          Alert.alert(tx('Uyarı'), 'Mekan adları tekrar etmemeli (her satır benzersiz olmalı).');
           return;
         }
         if (!mahHasAny) {
-          Alert.alert('Uyarı', 'Mahalle girin: tek satırda ortak mahalle veya her mekan için bir satır.');
+          Alert.alert(tx('Uyarı'), 'Mahalle girin: tek satırda ortak mahalle veya her mekan için bir satır.');
           return;
         }
         const singleMahalleMode = mahLines.length === 1 || (mahHasAny && mahLines.filter((l) => l).length === 1);
@@ -1175,7 +1211,7 @@ export default function AdminMainScreen({ route, navigation }) {
         if (!singleMahalleMode) {
           for (let mi = 0; mi < mahLines.length; mi += 1) {
             if (!mahLines[mi]) {
-              Alert.alert('Uyarı', 'Çoklu mahalle satırlarının tamamı dolu olmalı.');
+              Alert.alert(tx('Uyarı'), 'Çoklu mahalle satırlarının tamamı dolu olmalı.');
               return;
             }
           }
@@ -1237,7 +1273,7 @@ export default function AdminMainScreen({ route, navigation }) {
           premium: !!formData.premium,
         };
         if (modalMode === 'add' && !payload.name) {
-          Alert.alert('Uyarı', 'İşletme adı girin.');
+          Alert.alert(tx('Uyarı'), 'İşletme adı girin.');
           return;
         }
         if (modalMode === 'edit' && !payload.password) delete payload.password;
@@ -1254,11 +1290,11 @@ export default function AdminMainScreen({ route, navigation }) {
         note: (formData.note || '').trim(),
       };
       if (!payload.memberId) {
-        Alert.alert('Uyarı', 'Üye numarası girin (kullanıcı profilinden).');
+        Alert.alert(tx('Uyarı'), 'Üye numarası girin (kullanıcı profilinden).');
         return;
       }
       if (!payload.business) {
-        Alert.alert('Uyarı', 'İşletme seçin.');
+        Alert.alert(tx('Uyarı'), 'İşletme seçin.');
         return;
       }
     } else if (selectedType === 'kampanyalar') {
@@ -1296,11 +1332,11 @@ export default function AdminMainScreen({ route, navigation }) {
       payload.premium = !!formData.premium;
       const pwd = (formData.password || '').trim();
       if (formData.premium && modalMode === 'add' && pwd.length < 6) {
-        Alert.alert('Uyarı', 'Premium için giriş şifresi en az 6 karakter olmalı.');
+        Alert.alert(tx('Uyarı'), 'Premium için giriş şifresi en az 6 karakter olmalı.');
         return;
       }
       if (formData.premium && modalMode === 'edit' && pwd && pwd.length < 6) {
-        Alert.alert('Uyarı', 'Premium şifresi en az 6 karakter olmalı.');
+        Alert.alert(tx('Uyarı'), 'Premium şifresi en az 6 karakter olmalı.');
         return;
       }
       if (modalMode === 'edit' && !pwd) delete payload.password;
@@ -1313,11 +1349,11 @@ export default function AdminMainScreen({ route, navigation }) {
         payload.premium = !!formData.premium;
         const pwd = (formData.password || '').trim();
         if (formData.premium && modalMode === 'add' && pwd.length < 6) {
-          Alert.alert('Uyarı', 'Premium için giriş şifresi en az 6 karakter olmalı.');
+          Alert.alert(tx('Uyarı'), 'Premium için giriş şifresi en az 6 karakter olmalı.');
           return;
         }
         if (formData.premium && modalMode === 'edit' && pwd && pwd.length < 6) {
-          Alert.alert('Uyarı', 'Premium şifresi en az 6 karakter olmalı.');
+          Alert.alert(tx('Uyarı'), 'Premium şifresi en az 6 karakter olmalı.');
           return;
         }
         if (modalMode === 'edit' && !pwd) delete payload.password;
@@ -1336,7 +1372,7 @@ export default function AdminMainScreen({ route, navigation }) {
             : '';
       const licErr = errorIfLicenseExpiryBeforeToday(lic.trim());
       if (licErr) {
-        Alert.alert('Geçersiz tarih', licErr);
+        Alert.alert(tx('Geçersiz tarih'), licErr);
         return;
       }
     }
@@ -1354,9 +1390,9 @@ export default function AdminMainScreen({ route, navigation }) {
           setDatePickerField(null);
           setLimanTimePickerField(null);
           fetchList();
-        } else Alert.alert('Hata', data.error || 'Güncellenemedi');
+        } else Alert.alert(tx('Hata'), data.error || 'Güncellenemedi');
       } catch (e) {
-        Alert.alert('Hata', 'Bağlantı hatası');
+        Alert.alert(tx('Hata'), 'Bağlantı hatası');
       }
     } else {
       try {
@@ -1372,10 +1408,10 @@ export default function AdminMainScreen({ route, navigation }) {
           setLimanTimePickerField(null);
           fetchList();
         } else {
-          Alert.alert('Hata', data.message ? `${data.error || 'Eklenemedi'}\n${data.message}` : (data.error || 'Eklenemedi'));
+          Alert.alert(tx('Hata'), data.message ? `${data.error || 'Eklenemedi'}\n${data.message}` : (data.error || 'Eklenemedi'));
         }
       } catch (e) {
-        Alert.alert('Hata', 'Bağlantı hatası');
+        Alert.alert(tx('Hata'), 'Bağlantı hatası');
       }
     }
   };
@@ -1385,27 +1421,27 @@ export default function AdminMainScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Admin Panel</Text>
+        <Text style={styles.title}>{tx('Admin Panel')}</Text>
         <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.replace('Login')}>
-          <Text style={styles.logoutText}>Çıkış</Text>
+          <Text style={styles.logoutText}>{tx('Çıkış')}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.pageTopRow}>
         <TouchableOpacity style={styles.kullanicilarBtn} onPress={() => navigation.navigate('AdminUsers')}>
-          <Text style={styles.kullanicilarBtnText}>Kullanıcılar</Text>
+          <Text style={styles.kullanicilarBtnText}>{tx('Kullanıcılar')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.kullaniciAdresBtn}
           onPress={() => navigation.navigate('AdminUsersByAddress')}
         >
-          <Text style={styles.kullaniciAdresBtnText}>Kullanıcı adresleri</Text>
+          <Text style={styles.kullaniciAdresBtnText}>{tx('Kullanıcı adresleri')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bekleyenBtn} onPress={() => navigation.navigate('BekleyenKayitlar')}>
-          <Text style={styles.bekleyenBtnText}>Bekleyen kayıtlar</Text>
+          <Text style={styles.bekleyenBtnText}>{tx('Bekleyen kayıtlar')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.lisansBtn} onPress={() => navigation.navigate('LisansBitmekUzere')}>
-          <Text style={styles.lisansBtnText}>Lisansı bitmek üzere</Text>
+          <Text style={styles.lisansBtnText}>{tx('Lisansı bitmek üzere')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1416,6 +1452,40 @@ export default function AdminMainScreen({ route, navigation }) {
       >
         <Text style={styles.homePhotoSmallBtnText}>🖼 Ana sayfa fotoğrafı</Text>
       </TouchableOpacity>
+
+      <View style={styles.yoreselFeeBox}>
+        <Text style={styles.yoreselFeeTitle}>{tx('Yöresel etkinlik rezervasyon bedeli')}</Text>
+        <Text style={styles.yoreselFeeHint}>
+          Uygulama sahibine kart ile ödenir. Üye ödemeden Talep gönder kapalı kalır. 0 yazarsanız ödeme istenmez.
+        </Text>
+        <View style={styles.yoreselFeeRow}>
+          <TextInput
+            style={styles.yoreselFeeInput}
+            value={yoreselReservationFee}
+            onChangeText={setYoreselReservationFee}
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor="#999"
+          />
+          <Text style={styles.yoreselFeeCurrency}>TL</Text>
+          <TouchableOpacity
+            style={[styles.yoreselFeeSaveBtn, yoreselFeeSaving && styles.homePhotoBtnDisabled]}
+            onPress={saveYoreselFee}
+            disabled={yoreselFeeSaving}
+          >
+            {yoreselFeeSaving ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.yoreselFeeSaveText}>{tx('Kaydet')}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.yoreselFeeStatus}>
+          {yoreselPaymentConfigured
+            ? 'Kart ödemesi (iyzico) bağlı.'
+            : 'Kart ödemesi henüz bağlı değil. Render .env içine IYZICO_API_KEY ve IYZICO_SECRET_KEY ekleyin.'}
+        </Text>
+      </View>
 
       <Modal
         visible={homePhotoModalVisible}
@@ -1429,7 +1499,7 @@ export default function AdminMainScreen({ route, navigation }) {
           onPress={() => setHomePhotoModalVisible(false)}
         >
           <View style={styles.homePhotoModalBox} onStartShouldSetResponder={() => true}>
-            <Text style={styles.homePhotoModalTitle}>Ana sayfa fotoğrafı (giriş ekranı)</Text>
+            <Text style={styles.homePhotoModalTitle}>{tx('Ana sayfa fotoğrafı (giriş ekranı)')}</Text>
             {homeImageUrl ? (
               <Image source={{ uri: apiUrl(homeImageUrl) }} style={styles.homePhotoPreview} resizeMode="cover" />
             ) : null}
@@ -1437,7 +1507,7 @@ export default function AdminMainScreen({ route, navigation }) {
               style={styles.homePhotoInput}
               value={homeImageUrl}
               onChangeText={setHomeImageUrl}
-              placeholder="Fotoğraf URL veya galeriden yükle"
+              placeholder={tx('Fotoğraf URL veya galeriden yükle')}
               placeholderTextColor="#999"
             />
             <View style={styles.homePhotoButtons}>
@@ -1449,7 +1519,7 @@ export default function AdminMainScreen({ route, navigation }) {
                 {homeImageUploading ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.homePhotoUploadBtnText}>Galeriden seç & yükle</Text>
+                  <Text style={styles.homePhotoUploadBtnText}>{tx('Galeriden seç & yükle')}</Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
@@ -1460,7 +1530,7 @@ export default function AdminMainScreen({ route, navigation }) {
                 {homeImageSaving ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.homePhotoSaveBtnText}>Kaydet</Text>
+                  <Text style={styles.homePhotoSaveBtnText}>{tx('Kaydet')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1468,13 +1538,13 @@ export default function AdminMainScreen({ route, navigation }) {
               style={styles.homePhotoModalClose}
               onPress={() => setHomePhotoModalVisible(false)}
             >
-              <Text style={styles.homePhotoModalCloseText}>Kapat</Text>
+              <Text style={styles.homePhotoModalCloseText}>{tx('Kapat')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
 
-      <Text style={styles.sectionLabel}>Liste türü</Text>
+      <Text style={styles.sectionLabel}>{tx('Liste türü')}</Text>
       <ScrollView
         style={styles.typeScrollWrap}
         showsVerticalScrollIndicator={false}
@@ -1484,7 +1554,7 @@ export default function AdminMainScreen({ route, navigation }) {
           const typesInGroup = gr.keys.map((k) => LIST_TYPES.find((t) => t.key === k)).filter(Boolean);
           return (
             <View key={gr.title} style={styles.typeGroup}>
-              <Text style={styles.typeGroupTitle}>{gr.title}</Text>
+              <Text style={styles.typeGroupTitle}>{tx(gr.title)}</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1507,7 +1577,7 @@ export default function AdminMainScreen({ route, navigation }) {
                     delayPressIn={0}
                     delayPressOut={0}
                   >
-                    <Text style={[styles.typeChipText, selectedType === t.key && styles.typeChipTextActive]}>{t.label}</Text>
+                    <Text style={[styles.typeChipText, selectedType === t.key && styles.typeChipTextActive]}>{tx(t.label)}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -1537,7 +1607,7 @@ export default function AdminMainScreen({ route, navigation }) {
                 activeOpacity={0.7}
               >
                 <Text style={[styles.activityChipText, activityFieldFilter === opt.id && styles.activityChipTextActive]}>
-                  {opt.label}
+                  {tx(opt.label)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -1548,7 +1618,7 @@ export default function AdminMainScreen({ route, navigation }) {
 
       {selectedType === 'esnaf' ? (
         <>
-          <Text style={styles.activityFilterLabel}>Kategori</Text>
+          <Text style={styles.activityFilterLabel}>{tx('Kategori')}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator
@@ -1567,7 +1637,7 @@ export default function AdminMainScreen({ route, navigation }) {
                 activeOpacity={0.7}
               >
                 <Text style={[styles.activityChipText, esnafCategoryFilter === opt.id && styles.activityChipTextActive]}>
-                  {opt.label}
+                  {tx(opt.label)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -1601,7 +1671,7 @@ export default function AdminMainScreen({ route, navigation }) {
                     yoreselServiceTagFilter === opt.id && styles.activityChipTextActive,
                   ]}
                 >
-                  {opt.label}
+                  {tx(opt.label)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -1615,11 +1685,11 @@ export default function AdminMainScreen({ route, navigation }) {
       <Text style={styles.activityFilterLabel}>Liste adres filtresi (ilçe, mahalle)</Text>
       <View style={styles.listAddressFilterRow}>
         <TouchableOpacity style={styles.listAddressFilterChip} onPress={() => openListAddressPicker('district')} activeOpacity={0.75}>
-          <Text style={styles.listAddressFilterLabel}>İlçe</Text>
+          <Text style={styles.listAddressFilterLabel}>{tx('İlçe')}</Text>
           <Text style={styles.listAddressFilterValue} numberOfLines={1}>{listFilterDistrict || 'Tümü'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.listAddressFilterChip} onPress={() => openListAddressPicker('neighborhood')} activeOpacity={0.75}>
-          <Text style={styles.listAddressFilterLabel}>Mahalle</Text>
+          <Text style={styles.listAddressFilterLabel}>{tx('Mahalle')}</Text>
           <Text style={styles.listAddressFilterValue} numberOfLines={1}>{listFilterNeighborhood || 'Tümü'}</Text>
         </TouchableOpacity>
       </View>
@@ -1637,10 +1707,10 @@ export default function AdminMainScreen({ route, navigation }) {
 
       <View style={styles.actionRow}>
         <TouchableOpacity style={styles.listeleBtn} onPress={onListele} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.listeleBtnText}>Listele</Text>}
+          {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.listeleBtnText}>{tx('Listele')}</Text>}
         </TouchableOpacity>
         <TouchableOpacity style={styles.ekleBtn} onPress={openAdd}>
-          <Text style={styles.ekleBtnText}>Ekle</Text>
+          <Text style={styles.ekleBtnText}>{tx('Ekle')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1649,7 +1719,7 @@ export default function AdminMainScreen({ route, navigation }) {
           <Text style={styles.errorText}>{listError}</Text>
           <Text style={styles.errorHint}>Backend: cd backend && npm start{'\n'}MongoDB bağlı mı kontrol edin.</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={fetchList}>
-            <Text style={styles.retryBtnText}>Tekrar dene</Text>
+            <Text style={styles.retryBtnText}>{tx('Tekrar dene')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -1657,7 +1727,7 @@ export default function AdminMainScreen({ route, navigation }) {
         style={styles.adminList}
         data={list}
         keyExtractor={(item) => item._id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#34C759']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />}
         ListEmptyComponent={
           !loading && list.length === 0 && !listError ? (
             <Text style={styles.emptyText}>Liste boş. "Listele" ile getir veya "Ekle" ile yeni kayıt ekle.</Text>
@@ -1771,9 +1841,9 @@ export default function AdminMainScreen({ route, navigation }) {
                   {addressPickerType === 'city' ? 'İl seçin' : addressPickerType === 'district' ? 'İlçe seçin' : 'Mahalle seçin'}
                 </Text>
                 {addressPickerTarget === 'list' && addressPickerType === 'neighborhood' && listFilterNhoodLoading ? (
-                  <View style={styles.pickerLoading}><ActivityIndicator size="small" color="#34C759" /><Text style={styles.pickerLoadingText}>Yükleniyor...</Text></View>
+                  <View style={styles.pickerLoading}><ActivityIndicator size="small" color="#1B4D4A" /><Text style={styles.pickerLoadingText}>Yükleniyor...</Text></View>
                 ) : addressPickerTarget === 'form' && addressPickerLoading ? (
-                  <View style={styles.pickerLoading}><ActivityIndicator size="small" color="#34C759" /><Text style={styles.pickerLoadingText}>Yükleniyor...</Text></View>
+                  <View style={styles.pickerLoading}><ActivityIndicator size="small" color="#1B4D4A" /><Text style={styles.pickerLoadingText}>Yükleniyor...</Text></View>
                 ) : (
                   <ScrollView style={styles.pickerScroll} keyboardShouldPersistTaps="handled">
                     {addressPickerType === 'city' && (provinces.length > 0 ? provinces : [{ id: 'mugla', name: DEFAULT_CITY }]).map((p) => (
@@ -1837,7 +1907,7 @@ export default function AdminMainScreen({ route, navigation }) {
                     setAddressPickerTarget('form');
                   }}
                 >
-                  <Text style={styles.pickerCloseText}>Kapat</Text>
+                  <Text style={styles.pickerCloseText}>{tx('Kapat')}</Text>
                 </TouchableOpacity>
               </View>
             </>
@@ -1930,7 +2000,7 @@ export default function AdminMainScreen({ route, navigation }) {
                         const selectedBiz = businessPickerOptions.find((o) => o.id === formData.business);
                         return (
                           <View key={f.name} style={styles.field}>
-                            <Text style={styles.fieldLabel}>{f.label}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
+                            <Text style={styles.fieldLabel}>{tx(f.label)}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
                             <TouchableOpacity
                               style={styles.selectTouch}
                               onPress={() => {
@@ -1966,7 +2036,7 @@ export default function AdminMainScreen({ route, navigation }) {
                             <View style={[styles.checkbox, formData[f.name] && styles.checkboxChecked]}>
                               {formData[f.name] ? <Text style={styles.checkboxTick}>✓</Text> : null}
                             </View>
-                            <Text style={styles.checkboxLabel}>{f.label}</Text>
+                            <Text style={styles.checkboxLabel}>{tx(f.label)}</Text>
                           </TouchableOpacity>
                         );
                       }
@@ -1984,7 +2054,7 @@ export default function AdminMainScreen({ route, navigation }) {
                                       : next,
                                 }))
                               }
-                              label={f.label}
+                              label={tx(f.label)}
                             />
                           </View>
                         );
@@ -1993,7 +2063,7 @@ export default function AdminMainScreen({ route, navigation }) {
                         const imgUrl = formData[f.name];
                         return (
                           <View key={f.name} style={styles.field}>
-                            <Text style={styles.fieldLabel}>{f.label}</Text>
+                            <Text style={styles.fieldLabel}>{tx(f.label)}</Text>
                             {imgUrl ? (
                               <Image source={{ uri: apiUrl(imgUrl) }} style={styles.formImageThumb} resizeMode="cover" />
                             ) : null}
@@ -2001,7 +2071,7 @@ export default function AdminMainScreen({ route, navigation }) {
                               style={styles.input}
                               value={imgUrl || ''}
                               onChangeText={(text) => setFormData((prev) => ({ ...prev, [f.name]: text }))}
-                              placeholder="Fotoğraf URL (yükle veya yapıştır)"
+                              placeholder={tx('Fotoğraf URL (yükle veya yapıştır)')}
                               placeholderTextColor="#999"
                             />
                             <TouchableOpacity
@@ -2025,7 +2095,7 @@ export default function AdminMainScreen({ route, navigation }) {
                         const reqStar = f.required && modalMode === 'add' ? ' *' : '';
                         return (
                           <View key={f.name} style={styles.field}>
-                            <Text style={styles.fieldLabel}>{f.label}{reqStar}</Text>
+                            <Text style={styles.fieldLabel}>{tx(f.label)}{reqStar}</Text>
                             <TouchableOpacity
                               style={styles.selectTouch}
                               onPress={() => openAddressPicker(pickerType)}
@@ -2044,7 +2114,7 @@ export default function AdminMainScreen({ route, navigation }) {
                         const displayVal = dateStr || 'Tarih seçin';
                         return (
                           <View key={f.name} style={styles.field}>
-                            <Text style={styles.fieldLabel}>{f.label}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
+                            <Text style={styles.fieldLabel}>{tx(f.label)}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
                             <TouchableOpacity
                               style={styles.selectTouch}
                               onPress={() => {
@@ -2070,7 +2140,7 @@ export default function AdminMainScreen({ route, navigation }) {
                         const displayL = inList ? vL : vL ? vL : 'Saat seçin';
                         return (
                           <View key={f.name} style={styles.field}>
-                            <Text style={styles.fieldLabel}>{f.label}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
+                            <Text style={styles.fieldLabel}>{tx(f.label)}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
                             <TouchableOpacity
                               style={styles.selectTouch}
                               onPress={() => {
@@ -2095,7 +2165,7 @@ export default function AdminMainScreen({ route, navigation }) {
                         const taReq = f.required && modalMode === 'add' ? ' *' : '';
                         return (
                           <View key={f.name} style={styles.field}>
-                            <Text style={styles.fieldLabel}>{f.label}{taReq}</Text>
+                            <Text style={styles.fieldLabel}>{tx(f.label)}{taReq}</Text>
                             <TextInput
                               style={[styles.input, styles.textareaInput]}
                               value={formData[f.name] || ''}
@@ -2115,7 +2185,7 @@ export default function AdminMainScreen({ route, navigation }) {
                         const displayLabel = selOpt != null ? selOpt.label : value || 'Seçin';
                         return (
                           <View key={f.name} style={styles.field}>
-                            <Text style={styles.fieldLabel}>{f.label}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
+                            <Text style={styles.fieldLabel}>{tx(f.label)}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
                             <TouchableOpacity
                               style={styles.selectTouch}
                               onPress={() => setSelectModalField(f.name)}
@@ -2133,7 +2203,7 @@ export default function AdminMainScreen({ route, navigation }) {
                         const isPhoneField = f.name === 'phone' || f.name === 'contactPhone';
                         return (
                         <View key={f.name} style={styles.field}>
-                          <Text style={styles.fieldLabel}>{f.label}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
+                          <Text style={styles.fieldLabel}>{tx(f.label)}{f.required && modalMode === 'add' ? ' *' : ''}</Text>
                           <TextInput
                             style={styles.input}
                             value={formData[f.name] || ''}
@@ -2144,7 +2214,7 @@ export default function AdminMainScreen({ route, navigation }) {
                               }
                               setFormData((prev) => ({ ...prev, [f.name]: v }));
                             }}
-                            placeholder={f.placeholder || f.label}
+                            placeholder={tx(f.placeholder || f.label)}
                             placeholderTextColor="#999"
                             secureTextEntry={f.name === 'password'}
                             keyboardType={
@@ -2195,14 +2265,14 @@ export default function AdminMainScreen({ route, navigation }) {
                             setDatePickerField(null);
                           }}
                         >
-                          <Text style={styles.datePickerOkText}>Tamam</Text>
+                          <Text style={styles.datePickerOkText}>{tx('Tamam')}</Text>
                         </TouchableOpacity>
                       ) : null}
                     </View>
                   ) : null}
                   <View style={styles.modalActions}>
                     <TouchableOpacity style={styles.cancelBtn} onPress={() => { setModalVisible(false); setDatePickerField(null); setSelectModalField(null); setLimanTimePickerField(null); }}>
-                      <Text style={styles.cancelBtnText}>İptal</Text>
+                      <Text style={styles.cancelBtnText}>{tx('İptal')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.saveBtn} onPress={handleSubmit}>
                       <Text style={styles.saveBtnText}>{modalMode === 'add' ? 'Ekle' : 'Kaydet'}</Text>
@@ -2236,7 +2306,7 @@ export default function AdminMainScreen({ route, navigation }) {
                           ))}
                         </ScrollView>
                         <TouchableOpacity style={styles.limanTimeSheetClose} onPress={() => setLimanTimePickerField(null)}>
-                          <Text style={styles.limanTimeSheetCloseText}>Kapat</Text>
+                          <Text style={styles.limanTimeSheetCloseText}>{tx('Kapat')}</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -2252,12 +2322,12 @@ export default function AdminMainScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F4F1EB' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingTop: 48,
     paddingBottom: 16,
     paddingHorizontal: 20,
@@ -2307,6 +2377,41 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   homePhotoSmallBtnText: { fontSize: 14, fontWeight: '600', color: '#333' },
+  yoreselFeeBox: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 14,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E1D8',
+  },
+  yoreselFeeTitle: { fontSize: 14, fontWeight: '700', color: '#1C1C1E', marginBottom: 6 },
+  yoreselFeeHint: { fontSize: 12, color: '#6B6B70', lineHeight: 17, marginBottom: 10 },
+  yoreselFeeRow: { flexDirection: 'row', alignItems: 'center' },
+  yoreselFeeInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E5E1D8',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    backgroundColor: '#F4F1EB',
+    color: '#1C1C1E',
+  },
+  yoreselFeeCurrency: { marginHorizontal: 8, fontSize: 15, fontWeight: '700', color: '#1B4D4A' },
+  yoreselFeeSaveBtn: {
+    backgroundColor: '#1B4D4A',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    minWidth: 84,
+    alignItems: 'center',
+  },
+  yoreselFeeSaveText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  yoreselFeeStatus: { marginTop: 8, fontSize: 12, color: '#7A5B1E' },
   homePhotoModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -2321,7 +2426,7 @@ const styles = StyleSheet.create({
   },
   homePhotoModalTitle: { fontSize: 16, fontWeight: '700', color: '#333', marginBottom: 14 },
   homePhotoModalClose: { marginTop: 16, paddingVertical: 12, alignItems: 'center' },
-  homePhotoModalCloseText: { fontSize: 16, fontWeight: '600', color: '#34C759' },
+  homePhotoModalCloseText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
   homePhotoPreview: { width: '100%', height: 140, borderRadius: 8, marginBottom: 10, backgroundColor: '#f0f0f0' },
   homePhotoInput: {
     borderWidth: 1,
@@ -2333,7 +2438,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   homePhotoButtons: { flexDirection: 'row' },
-  homePhotoUploadBtn: { flex: 1, marginRight: 8, backgroundColor: '#34C759', paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  homePhotoUploadBtn: { flex: 1, marginRight: 8, backgroundColor: '#1B4D4A', paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
   homePhotoSaveBtn: { flex: 1, backgroundColor: '#007AFF', paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
   homePhotoBtnDisabled: { opacity: 0.7 },
   homePhotoUploadBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
@@ -2366,7 +2471,7 @@ const styles = StyleSheet.create({
   },
   activityChipNoShrink: { flexShrink: 0 },
   adminList: { flex: 1 },
-  activityChipActive: { backgroundColor: '#34C759', borderColor: '#34C759' },
+  activityChipActive: { backgroundColor: '#1B4D4A', borderColor: '#1B4D4A' },
   activityChipText: { fontSize: 13, fontWeight: '600', color: '#333' },
   activityChipTextActive: { color: '#fff' },
   listAddressFilterRow: {
@@ -2395,7 +2500,7 @@ const styles = StyleSheet.create({
   selectModalItem: { paddingVertical: 14, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
   selectModalItemText: { fontSize: 15, color: '#333' },
   selectModalClose: { marginTop: 12, paddingVertical: 10, alignItems: 'center' },
-  selectModalCloseText: { fontSize: 15, fontWeight: '600', color: '#34C759' },
+  selectModalCloseText: { fontSize: 15, fontWeight: '600', color: '#1B4D4A' },
   typeScroll: { maxHeight: 50 },
   typeScrollContent: { paddingHorizontal: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   typeChip: {
@@ -2407,13 +2512,13 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#e0e0e0',
   },
-  typeChipActive: { backgroundColor: '#34C759', borderColor: '#34C759' },
+  typeChipActive: { backgroundColor: '#1B4D4A', borderColor: '#1B4D4A' },
   typeChipText: { fontSize: 14, color: '#333', fontWeight: '500' },
   typeChipTextActive: { color: '#fff' },
   actionRow: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, gap: 12 },
   listeleBtn: {
     flex: 1,
-    backgroundColor: '#34C759',
+    backgroundColor: '#1B4D4A',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -2425,11 +2530,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#fff',
     borderWidth: 2,
-    borderColor: '#34C759',
+    borderColor: '#1B4D4A',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ekleBtnText: { color: '#34C759', fontSize: 16, fontWeight: '600' },
+  ekleBtnText: { color: '#1B4D4A', fontSize: 16, fontWeight: '600' },
   emptyText: { textAlign: 'center', color: '#666', marginTop: 24, paddingHorizontal: 20 },
   errorBox: {
     marginHorizontal: 20,
@@ -2442,7 +2547,7 @@ const styles = StyleSheet.create({
   },
   errorText: { fontSize: 15, color: '#c00', fontWeight: '600', marginBottom: 8 },
   errorHint: { fontSize: 12, color: '#666', marginBottom: 12 },
-  retryBtn: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#34C759', borderRadius: 8 },
+  retryBtn: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#1B4D4A', borderRadius: 8 },
   retryBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   row: {
     flexDirection: 'row',
@@ -2459,7 +2564,7 @@ const styles = StyleSheet.create({
   rowTitle: { fontSize: 16, fontWeight: '600', color: '#333' },
   rowSub: { fontSize: 13, color: '#666', marginTop: 2 },
   rowActions: { flexDirection: 'row', gap: 8 },
-  updateBtn: { paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#34C759', borderRadius: 8 },
+  updateBtn: { paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#1B4D4A', borderRadius: 8 },
   updateBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   deleteBtn: { paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#dc3545', borderRadius: 8 },
   deleteBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
@@ -2499,7 +2604,7 @@ const styles = StyleSheet.create({
   },
   categoryPickerScroll: { maxHeight: 440, paddingHorizontal: 12 },
   categoryPickerBack: { paddingVertical: 14, alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e8e8e8' },
-  categoryPickerBackText: { fontSize: 16, fontWeight: '600', color: '#34C759' },
+  categoryPickerBackText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
   formScroll: { paddingHorizontal: 20, maxHeight: 420, flexGrow: 0 },
   field: { marginBottom: 14 },
   fieldLabel: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
@@ -2514,11 +2619,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: { borderColor: '#34C759', backgroundColor: '#34C759' },
+  checkboxChecked: { borderColor: '#1B4D4A', backgroundColor: '#1B4D4A' },
   checkboxTick: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   checkboxLabel: { fontSize: 15, color: '#333', flex: 1 },
   formImageThumb: { width: 120, height: 90, borderRadius: 8, marginBottom: 8, backgroundColor: '#eee' },
-  uploadImageBtn: { backgroundColor: '#34C759', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 8 },
+  uploadImageBtn: { backgroundColor: '#1B4D4A', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 8 },
   uploadImageBtnDisabled: { opacity: 0.7 },
   uploadImageBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   input: {
@@ -2553,14 +2658,14 @@ const styles = StyleSheet.create({
   pickerLoadingText: { marginTop: 8, fontSize: 14, color: '#666' },
   pickerEmptyText: { padding: 20, fontSize: 14, color: '#666', textAlign: 'center' },
   pickerClose: { padding: 16, alignItems: 'center' },
-  pickerCloseText: { fontSize: 16, fontWeight: '600', color: '#34C759' },
+  pickerCloseText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
   datePickerWrap: { paddingHorizontal: 20, paddingVertical: 12, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#eee' },
-  datePickerOkBtn: { marginTop: 12, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#34C759', borderRadius: 12, alignSelf: 'center' },
+  datePickerOkBtn: { marginTop: 12, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#1B4D4A', borderRadius: 12, alignSelf: 'center' },
   datePickerOkText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   modalActions: { flexDirection: 'row', padding: 20, gap: 12 },
   cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#eee', alignItems: 'center' },
   cancelBtnText: { fontSize: 16, fontWeight: '600', color: '#666' },
-  saveBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#34C759', alignItems: 'center' },
+  saveBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#1B4D4A', alignItems: 'center' },
   saveBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   /** Form kutusu içinde liman seçici (tek Modal içinde) */
   limanTimeInlineLayer: {
@@ -2599,5 +2704,5 @@ const styles = StyleSheet.create({
   limanTimeSheetItem: { padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e0e0e0' },
   limanTimeSheetItemText: { fontSize: 16, color: '#333' },
   limanTimeSheetClose: { padding: 16, alignItems: 'center' },
-  limanTimeSheetCloseText: { fontSize: 16, fontWeight: '600', color: '#34C759' },
+  limanTimeSheetCloseText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
 });
