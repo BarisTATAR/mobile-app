@@ -248,9 +248,13 @@ describe('SignUpScreen', () => {
 
 describe('AdminLoginScreen', () => {
   test('empty fields alert', () => {
-    const { getByText } = render(<AdminLoginScreen navigation={nav()} />);
+    const navigation = nav();
+    const { getByText, getByTestId } = render(<AdminLoginScreen navigation={navigation} />);
+    expect(getByTestId('admin-login-back')).toBeTruthy();
     fireEvent.press(getByText('Giriş Yap'));
     expect(Alert.alert).toHaveBeenCalledWith('Hata', 'Kullanıcı adı ve şifre girin');
+    fireEvent.press(getByTestId('admin-login-back'));
+    expect(navigation.goBack).toHaveBeenCalled();
   });
 });
 

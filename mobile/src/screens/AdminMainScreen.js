@@ -15,6 +15,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Pressable,
+  Dimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -35,6 +36,9 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 // Muğla ilçeleri (API yanıt vermezse veya henüz yüklenmediyse kullanılır)
 const MUGLA_DISTRICTS_FALLBACK = ['Bodrum', 'Dalaman', 'Datça', 'Fethiye', 'Kavaklıdere', 'Köyceğiz', 'Marmaris', 'Menteşe', 'Milas', 'Ortaca', 'Seydikemer', 'Ula', 'Yatağan'];
+const SCREEN_H = Dimensions.get('window').height;
+const ADMIN_FORM_SCROLL_MAX = Math.max(520, Math.round(SCREEN_H * 0.68));
+const ADMIN_PICKER_SCROLL_MAX = Math.max(420, Math.round(SCREEN_H * 0.55));
 
 const LIST_TYPES = [
   { key: 'isletme', label: 'İşletme listesi' },
@@ -1427,6 +1431,13 @@ export default function AdminMainScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
+      <FlatList
+        style={styles.adminList}
+        contentContainerStyle={styles.adminListContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        ListHeaderComponent={
+          <View>
       <View style={styles.pageTopRow}>
         <TouchableOpacity style={styles.kullanicilarBtn} onPress={() => navigation.navigate('AdminUsers')}>
           <Text style={styles.kullanicilarBtnText}>{tx('Kullanıcılar')}</Text>
@@ -1487,69 +1498,8 @@ export default function AdminMainScreen({ route, navigation }) {
         </Text>
       </View>
 
-      <Modal
-        visible={homePhotoModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setHomePhotoModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.homePhotoModalOverlay}
-          activeOpacity={1}
-          onPress={() => setHomePhotoModalVisible(false)}
-        >
-          <View style={styles.homePhotoModalBox} onStartShouldSetResponder={() => true}>
-            <Text style={styles.homePhotoModalTitle}>{tx('Ana sayfa fotoğrafı (giriş ekranı)')}</Text>
-            {homeImageUrl ? (
-              <Image source={{ uri: apiUrl(homeImageUrl) }} style={styles.homePhotoPreview} resizeMode="cover" />
-            ) : null}
-            <TextInput
-              style={styles.homePhotoInput}
-              value={homeImageUrl}
-              onChangeText={setHomeImageUrl}
-              placeholder={tx('Fotoğraf URL veya galeriden yükle')}
-              placeholderTextColor="#999"
-            />
-            <View style={styles.homePhotoButtons}>
-              <TouchableOpacity
-                style={[styles.homePhotoUploadBtn, homeImageUploading && styles.homePhotoBtnDisabled]}
-                onPress={uploadHomeImage}
-                disabled={homeImageUploading}
-              >
-                {homeImageUploading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.homePhotoUploadBtnText}>{tx('Galeriden seç & yükle')}</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.homePhotoSaveBtn, homeImageSaving && styles.homePhotoBtnDisabled]}
-                onPress={saveHomeImage}
-                disabled={homeImageSaving}
-              >
-                {homeImageSaving ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.homePhotoSaveBtnText}>{tx('Kaydet')}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={styles.homePhotoModalClose}
-              onPress={() => setHomePhotoModalVisible(false)}
-            >
-              <Text style={styles.homePhotoModalCloseText}>{tx('Kapat')}</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
       <Text style={styles.sectionLabel}>{tx('Liste türü')}</Text>
-      <ScrollView
-        style={styles.typeScrollWrap}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={styles.typeGroups}>
         {ADMIN_GROUPS.map((gr) => {
           const typesInGroup = gr.keys.map((k) => LIST_TYPES.find((t) => t.key === k)).filter(Boolean);
           return (
@@ -1584,7 +1534,7 @@ export default function AdminMainScreen({ route, navigation }) {
             </View>
           );
         })}
-      </ScrollView>
+      </View>
 
       {selectedType === 'isletme' ? (
         <>
@@ -1723,8 +1673,9 @@ export default function AdminMainScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       ) : null}
-      <FlatList
-        style={styles.adminList}
+
+          </View>
+        }
         data={list}
         keyExtractor={(item) => item._id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={['#1B4D4A']} />}
@@ -1808,6 +1759,63 @@ export default function AdminMainScreen({ route, navigation }) {
           </View>
         )}
       />
+
+      <Modal
+        visible={homePhotoModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setHomePhotoModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.homePhotoModalOverlay}
+          activeOpacity={1}
+          onPress={() => setHomePhotoModalVisible(false)}
+        >
+          <View style={styles.homePhotoModalBox} onStartShouldSetResponder={() => true}>
+            <Text style={styles.homePhotoModalTitle}>{tx('Ana sayfa fotoğrafı (giriş ekranı)')}</Text>
+            {homeImageUrl ? (
+              <Image source={{ uri: apiUrl(homeImageUrl) }} style={styles.homePhotoPreview} resizeMode="cover" />
+            ) : null}
+            <TextInput
+              style={styles.homePhotoInput}
+              value={homeImageUrl}
+              onChangeText={setHomeImageUrl}
+              placeholder={tx('Fotoğraf URL veya galeriden yükle')}
+              placeholderTextColor="#999"
+            />
+            <View style={styles.homePhotoButtons}>
+              <TouchableOpacity
+                style={[styles.homePhotoUploadBtn, homeImageUploading && styles.homePhotoBtnDisabled]}
+                onPress={uploadHomeImage}
+                disabled={homeImageUploading}
+              >
+                {homeImageUploading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.homePhotoUploadBtnText}>{tx('Galeriden seç & yükle')}</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.homePhotoSaveBtn, homeImageSaving && styles.homePhotoBtnDisabled]}
+                onPress={saveHomeImage}
+                disabled={homeImageSaving}
+              >
+                {homeImageSaving ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.homePhotoSaveBtnText}>{tx('Kaydet')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.homePhotoModalClose}
+              onPress={() => setHomePhotoModalVisible(false)}
+            >
+              <Text style={styles.homePhotoModalCloseText}>{tx('Kapat')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Tek modal: hem form hem il/ilçe/mahalle seçici (çift modal donmasını önler) */}
       <Modal
@@ -2446,7 +2454,7 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 14, color: '#666', marginHorizontal: 20, marginTop: 10, marginBottom: 6 },
   hintText: { fontSize: 12, color: '#666', marginHorizontal: 20, marginTop: 4, marginBottom: 4 },
   hintTextCompact: { fontSize: 11, color: '#666', marginHorizontal: 16, marginTop: 2, marginBottom: 2 },
-  typeScrollWrap: { maxHeight: 120 },
+  typeGroups: { marginBottom: 4 },
   typeGroup: { marginBottom: 12 },
   typeGroupTitle: { fontSize: 13, fontWeight: '700', color: '#555', marginLeft: 16, marginBottom: 6 },
   activityFilterLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginHorizontal: 16, marginTop: 6, marginBottom: 4 },
@@ -2471,6 +2479,7 @@ const styles = StyleSheet.create({
   },
   activityChipNoShrink: { flexShrink: 0 },
   adminList: { flex: 1 },
+  adminListContent: { paddingBottom: 48, flexGrow: 1 },
   activityChipActive: { backgroundColor: '#1B4D4A', borderColor: '#1B4D4A' },
   activityChipText: { fontSize: 13, fontWeight: '600', color: '#333' },
   activityChipTextActive: { color: '#fff' },
@@ -2588,7 +2597,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: '#fff',
     borderRadius: 16,
-    maxHeight: '80%',
+    maxHeight: '92%',
     width: '100%',
     maxWidth: '100%',
     alignSelf: 'center',
@@ -2602,10 +2611,10 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     lineHeight: 18,
   },
-  categoryPickerScroll: { maxHeight: 440, paddingHorizontal: 12 },
+  categoryPickerScroll: { maxHeight: ADMIN_FORM_SCROLL_MAX, paddingHorizontal: 12 },
   categoryPickerBack: { paddingVertical: 14, alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e8e8e8' },
   categoryPickerBackText: { fontSize: 16, fontWeight: '600', color: '#1B4D4A' },
-  formScroll: { paddingHorizontal: 20, maxHeight: 420, flexGrow: 0 },
+  formScroll: { paddingHorizontal: 20, maxHeight: ADMIN_FORM_SCROLL_MAX, flexGrow: 1 },
   field: { marginBottom: 14 },
   fieldLabel: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
@@ -2651,7 +2660,7 @@ const styles = StyleSheet.create({
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   pickerBox: { backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '70%', paddingBottom: 24 },
   pickerTitle: { fontSize: 18, fontWeight: '600', color: '#333', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
-  pickerScroll: { maxHeight: 320 },
+  pickerScroll: { maxHeight: ADMIN_PICKER_SCROLL_MAX },
   pickerItem: { padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
   pickerItemText: { fontSize: 16, color: '#333' },
   pickerLoading: { padding: 24, alignItems: 'center' },
@@ -2700,7 +2709,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
-  limanTimeSheetScroll: { maxHeight: 360 },
+  limanTimeSheetScroll: { maxHeight: ADMIN_PICKER_SCROLL_MAX },
   limanTimeSheetItem: { padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e0e0e0' },
   limanTimeSheetItemText: { fontSize: 16, color: '#333' },
   limanTimeSheetClose: { padding: 16, alignItems: 'center' },

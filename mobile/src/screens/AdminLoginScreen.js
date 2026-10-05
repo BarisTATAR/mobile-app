@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { apiUrl } from '../config/api';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -47,7 +48,22 @@ export default function AdminLoginScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              testID="admin-login-back"
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+            >
+              <Text style={styles.backButtonText}>{tx('Geri Dön')}</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.header}>
             <Text style={styles.title}>{tx('Admin Girişi')}</Text>
             <Text style={styles.subtitle}>{tx('Yönetici hesabıyla giriş yapın')}</Text>
@@ -107,15 +123,7 @@ export default function AdminLoginScreen({ navigation }) {
               <Text style={styles.signUpLinkText}>{tx('Admin Üye Ol')}</Text>
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.backButtonText}>{tx('Geri Dön')}</Text>
-          </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -126,13 +134,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F1EB',
   },
   content: {
-    flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 56,
+    paddingTop: 12,
+    paddingBottom: 40,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 28,
   },
   title: {
     fontSize: 28,
@@ -193,9 +206,8 @@ const styles = StyleSheet.create({
   signUpLink: { marginTop: 16, alignItems: 'center' },
   signUpLinkText: { color: '#1B4D4A', fontSize: 14, fontWeight: '600' },
   backButton: {
-    marginTop: 20,
-    padding: 15,
-    alignItems: 'center',
+    paddingVertical: 8,
+    paddingRight: 12,
   },
   backButtonText: {
     color: '#1B4D4A',
