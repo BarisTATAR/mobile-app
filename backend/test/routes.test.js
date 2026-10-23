@@ -267,10 +267,39 @@ test('GET /api/payments/yoresel/status uses the admin-set fee', async () => {
   mockAppSettingsFee(0);
 });
 
+test('GET /api/yoresel-etkinlik/talep-limits reports blocked at daily cap', async () => {
+  mockMemberUser();
+  YoreselEtkinlikTalep.countDocuments = async (q) => {
+    const hours = (q.createdAt.$lt - q.createdAt.$gte) / 36e5;
+    if (hours <= 25) return 2;
+    return 0;
+  };
+  const res = await get(`/api/yoresel-etkinlik/talep-limits?userId=${USER_ID}`);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.blocked, true);
+  assert.equal(res.body.code, 'DAILY_LIMIT');
+});
+
+test('POST /api/payments/yoresel/init returns 429 when daily talep limit reached', async () => {
+  mockMemberUser();
+  mockAppSettingsFee(150);
+  mockNoPaidYoreselCredit();
+  process.env.IYZICO_API_KEY = 'sandbox-test';
+  process.env.IYZICO_SECRET_KEY = 'sandbox-test';
+  YoreselEtkinlikTalep.countDocuments = async () => 2;
+  const res = await post('/api/payments/yoresel/init', { userId: USER_ID });
+  assert.equal(res.status, 429);
+  assert.equal(res.body.code, 'DAILY_LIMIT');
+  mockAppSettingsFee(0);
+  delete process.env.IYZICO_API_KEY;
+  delete process.env.IYZICO_SECRET_KEY;
+});
+
 test('POST /api/payments/yoresel/init returns 503 when iyzico is not configured', async () => {
   mockMemberUser();
   mockAppSettingsFee(150);
   mockNoPaidYoreselCredit();
+  YoreselEtkinlikTalep.countDocuments = async () => 0;
   delete process.env.IYZICO_API_KEY;
   delete process.env.IYZICO_SECRET_KEY;
   const res = await post('/api/payments/yoresel/init', { userId: USER_ID });

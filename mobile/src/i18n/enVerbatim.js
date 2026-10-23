@@ -258,6 +258,10 @@ const enVerbatim = {
     'To complete the reservation you must pay the app owner {fee} by card.',
   'Bu tutar yöresel etkinlik rezervasyonunu tamamlamak için üyeden kart ile alınır. Üye ödemeden Talep gönder kapalı kalır. 0 yazarsanız ödeme istenmez.':
     'This amount is charged by card to complete a local-event reservation. Send request stays locked until paid. Enter 0 to skip payment.',
+  'Rezervasyon limiti': 'Reservation limit',
+  'Rezervasyon talep limitine ulaştınız.': 'You have reached the reservation request limit.',
+  'Limit doluyken yeni talep ve kart ödemesi yapılamaz. Günlük en fazla 2, son 30 günde en fazla 3 talep.':
+    'No new requests or card payments while the limit is full. Up to 2 per day and 3 in the last 30 days.',
   'Rezervasyon bedeli': 'Reservation fee',
   'Rezervasyon bedeli ödendi': 'Reservation fee paid',
   'Kart ödemeniz alındı. Talep gönder artık aktif.': 'Payment received. Send request is now active.',

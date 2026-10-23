@@ -111,6 +111,7 @@ const {
   countYoreselUserReservationsLastDays: countYoreselLastDaysUtil,
   countUserReservationsForActivityOnDate: countActivityReservationsUtil,
   countUserActiveReservations: countActiveReservationsUtil,
+  evaluateYoreselTalepLimits,
 } = require('./utils/reservationLimits');
 
 const YORESEL_SERVICE_LABELS = {
@@ -435,6 +436,10 @@ async function countYoreselUserReservationsToday(userId) {
 
 async function countYoreselUserReservationsLastDays(userId, days) {
   return countYoreselLastDaysUtil(YoreselEtkinlikTalep, userId, days);
+}
+
+async function yoreselTalepLimitStatusForUser(userId) {
+  return evaluateYoreselTalepLimits(YoreselEtkinlikTalep, userId);
 }
 
 async function countUserReservationsForActivityOnDate(userId, activityField, date, fallbackBusinessId = null) {
@@ -1007,6 +1012,14 @@ app.post('/api/payments/yoresel/init', async (req, res) => {
       userId = await requireMemberUser(req.body?.userId);
     } catch (authErr) {
       return res.status(authErr.status || 401).json({ error: authErr.message || MEMBER_REQUIRED_MESSAGE });
+    }
+    const talepLimits = await yoreselTalepLimitStatusForUser(userId);
+    if (talepLimits.blocked) {
+      return res.status(429).json({
+        error: talepLimits.message,
+        code: talepLimits.code,
+        limits: talepLimits,
+      });
     }
     const existing = await findPaidYoreselCredit(Payment, userId);
     if (existing) {
@@ -1882,6 +1895,28 @@ app.get('/api/yoresel-etkinlik/isletmeler/:id/takvim', async (req, res) => {
 });
 
 // Yöresel etkinlik: kullanıcı rezervasyon talebi
+app.get('/api/yoresel-etkinlik/talep-limits', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Veritabanı bağlantısı yok' });
+    }
+    const userIdRaw = req.query.userId != null ? String(req.query.userId).trim() : '';
+    if (!userIdRaw) {
+      return res.json(await yoreselTalepLimitStatusForUser(null));
+    }
+    let userId;
+    try {
+      userId = await requireMemberUser(userIdRaw);
+    } catch (authErr) {
+      return res.status(authErr.status || 401).json({ error: authErr.message || MEMBER_REQUIRED_MESSAGE });
+    }
+    res.json(await yoreselTalepLimitStatusForUser(userId));
+  } catch (e) {
+    console.error('Yoresel talep limits error:', e);
+    res.status(500).json({ error: 'Limit bilgisi alınamadı' });
+  }
+});
+
 app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
@@ -1917,13 +1952,13 @@ app.post('/api/yoresel-etkinlik/talep', async (req, res) => {
     } catch (authErr) {
       return res.status(authErr.status || 401).json({ error: authErr.message || MEMBER_REQUIRED_MESSAGE });
     }
-    const dailyCount = await countYoreselUserReservationsToday(userId);
-    if (wouldExceedLimit(dailyCount, YORESEL_DAILY_RESERVATION_LIMIT)) {
-      return res.status(429).json({ error: YORESEL_DAILY_LIMIT_MESSAGE, code: 'DAILY_LIMIT' });
-    }
-    const periodCount = await countYoreselUserReservationsLastDays(userId, YORESEL_PERIOD_DAYS);
-    if (wouldExceedLimit(periodCount, YORESEL_PERIOD_RESERVATION_LIMIT)) {
-      return res.status(429).json({ error: YORESEL_PERIOD_LIMIT_MESSAGE, code: 'PERIOD_LIMIT' });
+    const talepLimits = await yoreselTalepLimitStatusForUser(userId);
+    if (talepLimits.blocked) {
+      return res.status(429).json({
+        error: talepLimits.message,
+        code: talepLimits.code,
+        limits: talepLimits,
+      });
     }
     const yoreselFee = await getYoreselReservationFee(AppSettings);
     if (yoreselFee > 0) {

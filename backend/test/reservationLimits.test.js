@@ -12,6 +12,7 @@ const {
   countUserReservationsForActivityOnDate,
   countYoreselUserReservationsToday,
   countYoreselUserReservationsLastDays,
+  evaluateYoreselTalepLimits,
   isObjectIdLike,
 } = require('../utils/reservationLimits');
 
@@ -89,6 +90,33 @@ test('yoresel 30-day count includes cancelled because status is not filtered', a
   const n = await countYoreselUserReservationsLastDays(Model, '64b1f0c2a1b2c3d4e5f60789', 30);
   assert.equal(n, 3);
   assert.equal(seen[0].status, undefined);
+});
+
+test('evaluateYoreselTalepLimits blocks at daily cap before period', async () => {
+  const Model = {
+    countDocuments: async (q) => {
+      const hours = (q.createdAt.$lt - q.createdAt.$gte) / 36e5;
+      if (hours <= 25) return YORESEL_DAILY_RESERVATION_LIMIT;
+      return 0;
+    },
+  };
+  const out = await evaluateYoreselTalepLimits(Model, '64b1f0c2a1b2c3d4e5f60789');
+  assert.equal(out.blocked, true);
+  assert.equal(out.code, 'DAILY_LIMIT');
+  assert.equal(out.canSubmit, false);
+});
+
+test('evaluateYoreselTalepLimits blocks at 30-day cap', async () => {
+  const Model = {
+    countDocuments: async (q) => {
+      const hours = (q.createdAt.$lt - q.createdAt.$gte) / 36e5;
+      if (hours <= 25) return 0;
+      return YORESEL_PERIOD_RESERVATION_LIMIT;
+    },
+  };
+  const out = await evaluateYoreselTalepLimits(Model, '64b1f0c2a1b2c3d4e5f60789');
+  assert.equal(out.blocked, true);
+  assert.equal(out.code, 'PERIOD_LIMIT');
 });
 
 test('yoresel today count includes cancelled because status is not filtered', async () => {

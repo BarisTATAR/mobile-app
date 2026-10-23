@@ -4,6 +4,17 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
 
+jest.mock('@react-navigation/native', () => {
+  const React = require('react');
+  const actual = jest.requireActual('@react-navigation/native');
+  return {
+    ...actual,
+    useFocusEffect: (effect) => {
+      React.useEffect(() => effect(), [effect]);
+    },
+  };
+});
+
 jest.mock('./src/services/appWarmup', () => ({
   warmupAfterFirstPaint: jest.fn(),
 }));

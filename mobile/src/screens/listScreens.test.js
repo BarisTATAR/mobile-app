@@ -146,6 +146,13 @@ describe('list and content screens', () => {
           }),
         };
       }
+      if (String(url).includes('/api/yoresel-etkinlik/talep-limits')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ blocked: false, canSubmit: true }),
+        };
+      }
       return { ok: true, status: 200, json: async () => ({}) };
     });
     await AsyncStorage.setItem(
@@ -158,6 +165,54 @@ describe('list and content screens', () => {
       expect(await findByTestId('yoresel-pay-refresh')).toBeTruthy();
       expect(getByText('Rezervasyon bedeli')).toBeTruthy();
       expect(getAllByText(/150 TL/).length).toBeGreaterThan(0);
+      const submit = await findByTestId('yoresel-submit-button');
+      expect(submit.props.accessibilityState?.disabled || submit.props.disabled).toBe(true);
+    } finally {
+      await AsyncStorage.removeItem('appUser');
+      global.fetch.mockImplementation(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }));
+    }
+  });
+
+  test('member at talep limit sees banner and no pay button', async () => {
+    global.fetch.mockImplementation(async (url) => {
+      if (String(url).includes('/api/yoresel-etkinlik/talep-limits')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            blocked: true,
+            canSubmit: false,
+            code: 'PERIOD_LIMIT',
+            message: '30 gün içindeki Yöresel Etkinlik rezervasyon limitine ulaştınız.',
+          }),
+        };
+      }
+      if (String(url).includes('/api/payments/yoresel/status')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            fee: 150,
+            required: true,
+            paid: false,
+            paymentConfigured: true,
+          }),
+        };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    });
+    await AsyncStorage.setItem(
+      'appUser',
+      JSON.stringify({ id: 'u1', name: 'Ali', surname: 'Yılmaz', username: 'ali' })
+    );
+    const { findByTestId, queryByTestId } = render(<EtkinliklerScreen navigation={nav()} />);
+    try {
+      expect(await findByTestId('yoresel-limit-banner')).toBeTruthy();
+      expect(queryByTestId('yoresel-pay-button')).toBeNull();
       const submit = await findByTestId('yoresel-submit-button');
       expect(submit.props.accessibilityState?.disabled || submit.props.disabled).toBe(true);
     } finally {

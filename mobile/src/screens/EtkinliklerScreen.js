@@ -14,6 +14,7 @@ import {
   Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { apiUrl } from '../config/api';
 import YoreselAvailabilityCalendar from '../components/YoreselAvailabilityCalendar';
 import ListingCardMedia from '../components/ListingCardMedia';
@@ -155,6 +156,9 @@ export default function EtkinliklerScreen({ navigation }) {
   const [paymentAwaiting, setPaymentAwaiting] = useState(false);
   const [paymentFeeLabel, setPaymentFeeLabel] = useState('0 TL');
   const [submitPulseActive, setSubmitPulseActive] = useState(false);
+  const [talepLimitBlocked, setTalepLimitBlocked] = useState(false);
+  const [talepLimitMessage, setTalepLimitMessage] = useState('');
+  const [talepLimitsLoaded, setTalepLimitsLoaded] = useState(false);
   const paymentPollRef = useRef(null);
   const submitPulseAnim = useRef(new Animated.Value(1)).current;
   const submitPulseLoopRef = useRef(null);
@@ -256,6 +260,34 @@ export default function EtkinliklerScreen({ navigation }) {
     stopSubmitPulse();
   }, [stopPaymentPoll, stopSubmitPulse]);
 
+  const loadTalepLimits = useCallback(async () => {
+    if (!appUser?.id) {
+      setTalepLimitBlocked(false);
+      setTalepLimitMessage('');
+      setTalepLimitsLoaded(true);
+      return;
+    }
+    try {
+      const res = await fetch(
+        apiUrl(`/api/yoresel-etkinlik/talep-limits?userId=${encodeURIComponent(appUser.id)}`),
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setTalepLimitBlocked(false);
+        setTalepLimitMessage('');
+        return;
+      }
+      const blocked = !!data.blocked;
+      setTalepLimitBlocked(blocked);
+      setTalepLimitMessage(blocked && data.message ? String(data.message) : '');
+    } catch {
+      setTalepLimitBlocked(false);
+      setTalepLimitMessage('');
+    } finally {
+      setTalepLimitsLoaded(true);
+    }
+  }, [appUser?.id]);
+
   const loadPaymentStatus = useCallback(async () => {
     try {
       const q = appUser?.id ? `?userId=${encodeURIComponent(appUser.id)}` : '';
@@ -299,14 +331,25 @@ export default function EtkinliklerScreen({ navigation }) {
 
   useEffect(() => {
     loadPaymentStatus();
-  }, [loadPaymentStatus]);
+    loadTalepLimits();
+  }, [loadPaymentStatus, loadTalepLimits]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTalepLimits();
+      loadPaymentStatus();
+    }, [loadTalepLimits, loadPaymentStatus]),
+  );
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') loadPaymentStatus();
+      if (state === 'active') {
+        loadPaymentStatus();
+        loadTalepLimits();
+      }
     });
     return () => sub.remove();
-  }, [loadPaymentStatus]);
+  }, [loadPaymentStatus, loadTalepLimits]);
 
   useEffect(() => {
     const onUrl = ({ url }) => {
@@ -397,6 +440,10 @@ export default function EtkinliklerScreen({ navigation }) {
       );
       return;
     }
+    if (talepLimitBlocked) {
+      Alert.alert(tx('Uyarı'), talepLimitMessage || tx('Rezervasyon talep limitine ulaştınız.'));
+      return;
+    }
     if (paymentRequired && !paymentPaid) {
       Alert.alert(
         tx('Ödeme gerekli'),
@@ -432,6 +479,7 @@ export default function EtkinliklerScreen({ navigation }) {
           await loadPaymentStatus();
           Alert.alert(tx('Ödeme gerekli'), errMsg);
         } else if (res.status === 429 || data.code === 'DAILY_LIMIT' || data.code === 'PERIOD_LIMIT') {
+          await loadTalepLimits();
           Alert.alert(tx('Uyarı'), errMsg);
         } else {
           Alert.alert(tx('Hata'), errMsg);
@@ -449,6 +497,7 @@ export default function EtkinliklerScreen({ navigation }) {
       Alert.alert(tx('Başarılı'), successMsg);
       setNote('');
       loadPaymentStatus();
+      loadTalepLimits();
     } catch {
       Alert.alert(tx('Hata'), 'Bağlantı hatası.');
     } finally {
@@ -515,6 +564,10 @@ export default function EtkinliklerScreen({ navigation }) {
       Alert.alert(tx('Üye girişi gerekli'), tx('Ödeme için üye olmalısınız.'));
       return;
     }
+    if (talepLimitBlocked) {
+      Alert.alert(tx('Uyarı'), talepLimitMessage || tx('Rezervasyon talep limitine ulaştınız.'));
+      return;
+    }
     setPaying(true);
     try {
       const res = await fetch(apiUrl('/api/payments/yoresel/init'), {
@@ -529,6 +582,9 @@ export default function EtkinliklerScreen({ navigation }) {
         return;
       }
       if (!res.ok) {
+        if (res.status === 429 && (data.code === 'DAILY_LIMIT' || data.code === 'PERIOD_LIMIT')) {
+          await loadTalepLimits();
+        }
         Alert.alert(tx('Ödeme'), data.error || tx('Ödeme başlatılamadı.'));
         return;
       }
@@ -579,6 +635,16 @@ export default function EtkinliklerScreen({ navigation }) {
           {tx('Tarih ve etkinlik türünü seçin; ihtiyaç duyduğunuz hizmetleri işaretleyin. İsterseniz mekan / park-salon işletmesi seçerek talebinizi yönlendirin.')}
         </Text>
       </View>
+
+      {appUser && talepLimitsLoaded && talepLimitBlocked && talepLimitMessage ? (
+        <View style={styles.limitBannerBox} testID="yoresel-limit-banner">
+          <Text style={styles.limitBannerTitle}>{tx('Rezervasyon limiti')}</Text>
+          <Text style={styles.limitBannerText}>{talepLimitMessage}</Text>
+          <Text style={styles.limitBannerHint}>
+            {tx('Limit doluyken yeni talep ve kart ödemesi yapılamaz. Günlük en fazla 2, son 30 günde en fazla 3 talep.')}
+          </Text>
+        </View>
+      ) : null}
 
       <Text style={styles.sectionTitle}>{tx('Rezervasyon talebi')}</Text>
 
@@ -660,7 +726,7 @@ export default function EtkinliklerScreen({ navigation }) {
         multiline
       />
 
-      {appUser && paymentRequired ? (
+      {appUser && paymentRequired && !talepLimitBlocked ? (
         <View style={[styles.paymentBox, paymentPaid ? styles.paymentBoxPaid : null]}>
           <Text style={styles.paymentTitle}>
             {paymentPaid ? tx('Rezervasyon bedeli ödendi') : tx('Rezervasyon bedeli')}
@@ -729,13 +795,13 @@ export default function EtkinliklerScreen({ navigation }) {
             style={[
               styles.submitBtn,
               submitPulseActive && paymentRequired && paymentPaid ? styles.submitBtnHighlight : null,
-              (sending || (paymentRequired && !paymentPaid)) && styles.submitBtnDisabled,
+              (sending || talepLimitBlocked || (paymentRequired && !paymentPaid)) && styles.submitBtnDisabled,
             ]}
             onPress={() => {
               stopSubmitPulse();
               submitTalep();
             }}
-            disabled={sending || (paymentRequired && !paymentPaid)}
+            disabled={sending || talepLimitBlocked || (paymentRequired && !paymentPaid)}
             activeOpacity={0.85}
           >
             {sending ? (
@@ -1113,6 +1179,17 @@ const styles = StyleSheet.create({
   paymentHint: { fontSize: 13, color: '#5C5346', lineHeight: 18, marginBottom: 10 },
   paymentSandboxHint: { marginTop: 6, fontSize: 11, color: '#6B6560', lineHeight: 16 },
   paymentWarn: { marginTop: 8, fontSize: 12, color: '#B42318', lineHeight: 17 },
+  limitBannerBox: {
+    backgroundColor: '#FFF4E5',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F5A623',
+  },
+  limitBannerTitle: { fontSize: 16, fontWeight: '700', color: '#9A4A00', marginBottom: 6 },
+  limitBannerText: { fontSize: 14, color: '#5C3D00', lineHeight: 20, marginBottom: 8 },
+  limitBannerHint: { fontSize: 12, color: '#6B6560', lineHeight: 17 },
   payBtn: {
     backgroundColor: '#1B4D4A',
     paddingVertical: 13,

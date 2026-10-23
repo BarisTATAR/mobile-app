@@ -96,6 +96,57 @@ async function countUserActiveReservations(Reservation, userId) {
   });
 }
 
+async function evaluateYoreselTalepLimits(YoreselEtkinlikTalep, userId, now = new Date()) {
+  const base = {
+    blocked: false,
+    canSubmit: true,
+    code: null,
+    message: '',
+    dailyCount: 0,
+    dailyLimit: YORESEL_DAILY_RESERVATION_LIMIT,
+    dailyRemaining: YORESEL_DAILY_RESERVATION_LIMIT,
+    periodDays: YORESEL_PERIOD_DAYS,
+    periodCount: 0,
+    periodLimit: YORESEL_PERIOD_RESERVATION_LIMIT,
+    periodRemaining: YORESEL_PERIOD_RESERVATION_LIMIT,
+  };
+  if (!userId || !isObjectIdLike(userId)) {
+    return base;
+  }
+  const dailyCount = await countYoreselUserReservationsToday(YoreselEtkinlikTalep, userId, now);
+  const periodCount = await countYoreselUserReservationsLastDays(
+    YoreselEtkinlikTalep,
+    userId,
+    YORESEL_PERIOD_DAYS,
+    now,
+  );
+  const dailyBlocked = wouldExceedLimit(dailyCount, YORESEL_DAILY_RESERVATION_LIMIT);
+  const periodBlocked = wouldExceedLimit(periodCount, YORESEL_PERIOD_RESERVATION_LIMIT);
+  let code = null;
+  let message = '';
+  if (dailyBlocked) {
+    code = 'DAILY_LIMIT';
+    message = YORESEL_DAILY_LIMIT_MESSAGE;
+  } else if (periodBlocked) {
+    code = 'PERIOD_LIMIT';
+    message = YORESEL_PERIOD_LIMIT_MESSAGE;
+  }
+  const blocked = dailyBlocked || periodBlocked;
+  return {
+    blocked,
+    canSubmit: !blocked,
+    code,
+    message,
+    dailyCount,
+    dailyLimit: YORESEL_DAILY_RESERVATION_LIMIT,
+    dailyRemaining: Math.max(0, YORESEL_DAILY_RESERVATION_LIMIT - dailyCount),
+    periodDays: YORESEL_PERIOD_DAYS,
+    periodCount,
+    periodLimit: YORESEL_PERIOD_RESERVATION_LIMIT,
+    periodRemaining: Math.max(0, YORESEL_PERIOD_RESERVATION_LIMIT - periodCount),
+  };
+}
+
 module.exports = {
   YORESEL_DAILY_RESERVATION_LIMIT,
   YORESEL_PERIOD_DAYS,
@@ -118,4 +169,5 @@ module.exports = {
   countYoreselUserReservationsLastDays,
   countUserReservationsForActivityOnDate,
   countUserActiveReservations,
+  evaluateYoreselTalepLimits,
 };
