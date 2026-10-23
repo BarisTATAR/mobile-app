@@ -212,6 +212,7 @@ describe('list and content screens', () => {
     const { findByTestId, queryByTestId } = render(<EtkinliklerScreen navigation={nav()} />);
     try {
       expect(await findByTestId('yoresel-limit-banner')).toBeTruthy();
+      expect(await findByTestId('yoresel-reservation-locked')).toBeTruthy();
       expect(queryByTestId('yoresel-pay-button')).toBeNull();
       const submit = await findByTestId('yoresel-submit-button');
       expect(submit.props.accessibilityState?.disabled || submit.props.disabled).toBe(true);

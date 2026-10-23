@@ -342,6 +342,15 @@ export default function EtkinliklerScreen({ navigation }) {
   );
 
   useEffect(() => {
+    if (!appUser || !talepLimitsLoaded || !talepLimitBlocked) return;
+    setDateModal(false);
+    setEventTypeModal(false);
+    setServiceTimeSlotModalKey('');
+    setServiceIsletmeModal(false);
+    setServicePickerKey('');
+  }, [appUser, talepLimitsLoaded, talepLimitBlocked]);
+
+  useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         loadPaymentStatus();
@@ -627,6 +636,8 @@ export default function EtkinliklerScreen({ navigation }) {
   const y0 = new Date().getFullYear();
   for (let y = y0 - 1; y <= y0 + 2; y += 1) YEARS.push(y);
 
+  const reservationFormLocked = !!(appUser && talepLimitsLoaded && talepLimitBlocked);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
@@ -646,6 +657,11 @@ export default function EtkinliklerScreen({ navigation }) {
         </View>
       ) : null}
 
+      <View
+        testID={reservationFormLocked ? 'yoresel-reservation-locked' : 'yoresel-reservation-form'}
+        pointerEvents={reservationFormLocked ? 'none' : 'auto'}
+        style={reservationFormLocked ? styles.limitLockedSection : null}
+      >
       <Text style={styles.sectionTitle}>{tx('Rezervasyon talebi')}</Text>
 
       <Text style={styles.label}>{tx('Etkinlik tarihi')}</Text>
@@ -812,6 +828,7 @@ export default function EtkinliklerScreen({ navigation }) {
           </TouchableOpacity>
         </Animated.View>
       ) : null}
+      </View>
 
       <View style={styles.divider} />
 
@@ -1190,6 +1207,7 @@ const styles = StyleSheet.create({
   limitBannerTitle: { fontSize: 16, fontWeight: '700', color: '#9A4A00', marginBottom: 6 },
   limitBannerText: { fontSize: 14, color: '#5C3D00', lineHeight: 20, marginBottom: 8 },
   limitBannerHint: { fontSize: 12, color: '#6B6560', lineHeight: 17 },
+  limitLockedSection: { opacity: 0.42 },
   payBtn: {
     backgroundColor: '#1B4D4A',
     paddingVertical: 13,
