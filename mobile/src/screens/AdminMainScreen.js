@@ -1467,7 +1467,7 @@ export default function AdminMainScreen({ route, navigation }) {
       <View style={styles.yoreselFeeBox}>
         <Text style={styles.yoreselFeeTitle}>{tx('Yöresel etkinlik rezervasyon bedeli')}</Text>
         <Text style={styles.yoreselFeeHint}>
-          Uygulama sahibine kart ile ödenir. Üye ödemeden Talep gönder kapalı kalır. 0 yazarsanız ödeme istenmez.
+          {tx('Bu tutar yöresel etkinlik rezervasyonunu tamamlamak için üyeden kart ile alınır. Üye ödemeden Talep gönder kapalı kalır. 0 yazarsanız ödeme istenmez.')}
         </Text>
         <View style={styles.yoreselFeeRow}>
           <TextInput

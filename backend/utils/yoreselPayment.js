@@ -1,5 +1,6 @@
 const YORESEL_PAYMENT_PURPOSE = 'yoresel_reservation';
-const PAYMENT_REQUIRED_MESSAGE = 'Yöresel etkinlik talebi göndermek için rezervasyon bedelini kart ile ödemelisiniz.';
+const YORESEL_PAYMENT_APP_RETURN = 'com.app48.app://yoresel-payment';
+const PAYMENT_REQUIRED_MESSAGE = 'Yöresel etkinlik rezervasyonunu tamamlamak için adminin belirlediği bedeli kart ile ödemelisiniz.';
 const PAYMENT_NOT_CONFIGURED_MESSAGE =
   'Kart ödemesi henüz bağlanmadı. iyzico anahtarlarını sunucuya ekledikten sonra ödeme alınır.';
 
@@ -76,6 +77,7 @@ function serializeAppSettings(doc, paymentConfigured) {
 
 module.exports = {
   YORESEL_PAYMENT_PURPOSE,
+  YORESEL_PAYMENT_APP_RETURN,
   PAYMENT_REQUIRED_MESSAGE,
   PAYMENT_NOT_CONFIGURED_MESSAGE,
   normalizeYoreselReservationFee,

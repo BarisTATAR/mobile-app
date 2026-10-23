@@ -252,11 +252,19 @@ const enVerbatim = {
   'Bu alan için kayıtlı işletme yok.': 'No businesses registered for this service.',
   Yıl: 'Year',
   'Kart ile öde': 'Pay by card',
+  'Kart sayfası açıldı. Ödedikten sonra uygulamaya dönün.': 'The card page opened. Return to the app after paying.',
+  'Ödemeyi kontrol et': 'Check payment',
+  'Talep göndermek için uygulama sahibine {fee} kart ile ödemelisiniz.':
+    'To complete the reservation you must pay the app owner {fee} by card.',
+  'Bu tutar yöresel etkinlik rezervasyonunu tamamlamak için üyeden kart ile alınır. Üye ödemeden Talep gönder kapalı kalır. 0 yazarsanız ödeme istenmez.':
+    'This amount is charged by card to complete a local-event reservation. Send request stays locked until paid. Enter 0 to skip payment.',
   'Rezervasyon bedeli': 'Reservation fee',
   'Rezervasyon bedeli ödendi': 'Reservation fee paid',
   'Kart ödemeniz alındı. Talep gönder artık aktif.': 'Payment received. Send request is now active.',
   'Kart sistemi henüz bağlanmadı. Yönetici iyzico anahtarlarını eklemeli.':
     'Card payments are not connected yet. Admin must add iyzico keys.',
+  'Test kartı: 5528790000000008 · SKT 12/30 · CVC 123. 3D Secure / SMS kodu sandbox’ta her zaman 123456 (Failure görürseniz kodu kontrol edin).':
+    'Test card: 5528790000000008 · exp 12/30 · CVC 123. In sandbox the 3D Secure / SMS code is always 123456 (if you see Failure, check the code).',
   'Ödeme gerekli': 'Payment required',
   Ödeme: 'Payment',
   'Ödeme için üye olmalısınız.': 'You must sign in to pay.',

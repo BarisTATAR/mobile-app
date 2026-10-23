@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,19 @@ import {
 } from '../constants/yoreselTimeSlots';
 
 const APP_USER_KEY = 'appUser';
+const YORESEL_PAYMENT_RETURN = 'com.app48.app://yoresel-payment';
+
+function formatFeeTl(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) return '0 TL';
+  if (Number.isInteger(n)) return `${n} TL`;
+  return `${n.toFixed(2).replace('.', ',')} TL`;
+}
+
+function isYoreselPaymentReturnUrl(url) {
+  const s = String(url || '');
+  return s.includes('yoresel-payment');
+}
 
 const EVENT_TYPES = [
   { id: 'dugun', title: 'Düğün', emoji: '💒' },
@@ -135,7 +148,12 @@ export default function EtkinliklerScreen({ navigation }) {
   const [paymentRequired, setPaymentRequired] = useState(false);
   const [paymentPaid, setPaymentPaid] = useState(true);
   const [paymentConfigured, setPaymentConfigured] = useState(false);
+  const [paymentSandbox, setPaymentSandbox] = useState(false);
+  const [lastPaymentError, setLastPaymentError] = useState('');
   const [paymentStatusLoaded, setPaymentStatusLoaded] = useState(false);
+  const [paymentAwaiting, setPaymentAwaiting] = useState(false);
+  const [paymentFeeLabel, setPaymentFeeLabel] = useState('0 TL');
+  const paymentPollRef = useRef(null);
 
   const [dateModal, setDateModal] = useState(false);
   const [eventTypeModal, setEventTypeModal] = useState(false);
@@ -199,6 +217,13 @@ export default function EtkinliklerScreen({ navigation }) {
     loadIsletmeler();
   }, [loadIsletmeler]);
 
+  const stopPaymentPoll = useCallback(() => {
+    if (paymentPollRef.current) {
+      clearInterval(paymentPollRef.current);
+      paymentPollRef.current = null;
+    }
+  }, []);
+
   const loadPaymentStatus = useCallback(async () => {
     try {
       const q = appUser?.id ? `?userId=${encodeURIComponent(appUser.id)}` : '';
@@ -208,20 +233,31 @@ export default function EtkinliklerScreen({ navigation }) {
         setPaymentRequired(false);
         setPaymentPaid(true);
         setPaymentFee(0);
-        return;
+        setPaymentFeeLabel('0 TL');
+        return data;
       }
       const fee = Number(data.fee) || 0;
+      const paid = data.paid !== false;
       setPaymentFee(fee);
+      setPaymentFeeLabel(data.feeLabel || formatFeeTl(fee));
       setPaymentRequired(!!data.required);
-      setPaymentPaid(data.paid !== false);
+      setPaymentPaid(paid);
       setPaymentConfigured(!!data.paymentConfigured);
+      setPaymentSandbox(!!data.paymentSandbox);
+      setLastPaymentError(data.lastPaymentError ? String(data.lastPaymentError) : '');
+      if (paid && data.required) {
+        setPaymentAwaiting(false);
+        stopPaymentPoll();
+      }
+      return data;
     } catch {
       setPaymentRequired(false);
       setPaymentPaid(true);
+      return null;
     } finally {
       setPaymentStatusLoaded(true);
     }
-  }, [appUser?.id]);
+  }, [appUser?.id, stopPaymentPoll]);
 
   useEffect(() => {
     loadPaymentStatus();
@@ -233,6 +269,35 @@ export default function EtkinliklerScreen({ navigation }) {
     });
     return () => sub.remove();
   }, [loadPaymentStatus]);
+
+  useEffect(() => {
+    const onUrl = ({ url }) => {
+      if (!isYoreselPaymentReturnUrl(url)) return;
+      loadPaymentStatus();
+    };
+    const sub = Linking.addEventListener('url', onUrl);
+    Linking.getInitialURL().then((url) => {
+      if (url) onUrl({ url });
+    });
+    return () => {
+      if (sub && typeof sub.remove === 'function') sub.remove();
+    };
+  }, [loadPaymentStatus]);
+
+  useEffect(() => () => stopPaymentPoll(), [stopPaymentPoll]);
+
+  const startPaymentPoll = useCallback(() => {
+    stopPaymentPoll();
+    let ticks = 0;
+    paymentPollRef.current = setInterval(() => {
+      ticks += 1;
+      loadPaymentStatus();
+      if (ticks >= 80) {
+        stopPaymentPoll();
+        setPaymentAwaiting(false);
+      }
+    }, 2500);
+  }, [loadPaymentStatus, stopPaymentPoll]);
 
   const isletmelerForService = useCallback((serviceKey) => {
     const tag = SERVICE_TAG_BY_KEY[serviceKey];
@@ -298,8 +363,9 @@ export default function EtkinliklerScreen({ navigation }) {
     }
     if (paymentRequired && !paymentPaid) {
       Alert.alert(
-        'Ödeme gerekli',
-        `Talep göndermek için yöresel rezervasyon bedelini (${paymentFee} TL) kart ile ödemelisiniz.`
+        tx('Ödeme gerekli'),
+        tx('Talep göndermek için yöresel rezervasyon bedelini kart ile ödemelisiniz.') +
+          ` (${paymentFeeLabel})`
       );
       return;
     }
@@ -410,7 +476,7 @@ export default function EtkinliklerScreen({ navigation }) {
 
   const startYoreselPayment = async () => {
     if (!appUser?.id) {
-      Alert.alert(tx('Üye girişi gerekli'), 'Ödeme için üye olmalısınız.');
+      Alert.alert(tx('Üye girişi gerekli'), tx('Ödeme için üye olmalısınız.'));
       return;
     }
     setPaying(true);
@@ -423,21 +489,25 @@ export default function EtkinliklerScreen({ navigation }) {
       const data = await res.json().catch(() => ({}));
       if (data.alreadyPaid) {
         await loadPaymentStatus();
-        Alert.alert(tx('Ödeme'), 'Rezervasyon bedeli zaten ödendi. Talep gönderebilirsiniz.');
+        Alert.alert(tx('Ödeme'), tx('Rezervasyon bedeli zaten ödendi. Talep gönderebilirsiniz.'));
         return;
       }
       if (!res.ok) {
-        Alert.alert(tx('Ödeme'), data.error || 'Ödeme başlatılamadı.');
+        Alert.alert(tx('Ödeme'), data.error || tx('Ödeme başlatılamadı.'));
         return;
       }
       if (data.checkoutUrl) {
+        setPaymentAwaiting(true);
+        startPaymentPoll();
         const opened = await Linking.openURL(data.checkoutUrl);
         if (opened === false) {
-          Alert.alert(tx('Ödeme'), 'Kart sayfası açılamadı.');
+          setPaymentAwaiting(false);
+          stopPaymentPoll();
+          Alert.alert(tx('Ödeme'), tx('Kart sayfası açılamadı.'));
         }
       }
     } catch {
-      Alert.alert(tx('Hata'), 'Ödeme sayfasına bağlanılamadı.');
+      Alert.alert(tx('Hata'), tx('Ödeme sayfasına bağlanılamadı.'));
     } finally {
       setPaying(false);
     }
@@ -545,13 +615,18 @@ export default function EtkinliklerScreen({ navigation }) {
       {appUser && paymentRequired ? (
         <View style={[styles.paymentBox, paymentPaid ? styles.paymentBoxPaid : null]}>
           <Text style={styles.paymentTitle}>
-            {paymentPaid ? 'Rezervasyon bedeli ödendi' : 'Rezervasyon bedeli'}
+            {paymentPaid ? tx('Rezervasyon bedeli ödendi') : tx('Rezervasyon bedeli')}
           </Text>
           <Text style={styles.paymentHint}>
             {paymentPaid
-              ? 'Kart ödemeniz alındı. Talep gönder artık aktif.'
-              : `Talep göndermek için uygulama sahibine ${paymentFee} TL kart ile ödemelisiniz.`}
+              ? tx('Kart ödemeniz alındı. Talep gönder artık aktif.')
+              : tx('Talep göndermek için uygulama sahibine {fee} kart ile ödemelisiniz.', {
+                  fee: paymentFeeLabel,
+                })}
           </Text>
+          {paymentAwaiting && !paymentPaid ? (
+            <Text style={styles.paymentHint}>{tx('Kart sayfası açıldı. Ödedikten sonra uygulamaya dönün.')}</Text>
+          ) : null}
           {!paymentPaid ? (
             <TouchableOpacity
               testID="yoresel-pay-button"
@@ -560,8 +635,34 @@ export default function EtkinliklerScreen({ navigation }) {
               disabled={paying}
               activeOpacity={0.8}
             >
-              {paying ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Kart ile öde · {paymentFee} TL</Text>}
+              {paying ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.submitBtnText}>
+                  {tx('Kart ile öde')} · {paymentFeeLabel}
+                </Text>
+              )}
             </TouchableOpacity>
+          ) : null}
+          {!paymentPaid ? (
+            <TouchableOpacity
+              testID="yoresel-pay-refresh"
+              style={styles.payRefreshBtn}
+              onPress={loadPaymentStatus}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.payRefreshText}>{tx('Ödemeyi kontrol et')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {!paymentPaid && lastPaymentError ? (
+            <Text style={styles.paymentWarn}>{lastPaymentError}</Text>
+          ) : null}
+          {!paymentPaid && paymentSandbox && paymentConfigured ? (
+            <Text style={styles.paymentSandboxHint}>
+              {tx(
+                'Test kartı: 5528790000000008 · SKT 12/30 · CVC 123. 3D Secure / SMS kodu sandbox’ta her zaman 123456 (Failure görürseniz kodu kontrol edin).',
+              )}
+            </Text>
           ) : null}
           {!paymentPaid && !paymentConfigured && paymentStatusLoaded ? (
             <Text style={styles.paymentWarn}>{tx('Kart sistemi henüz bağlanmadı. Yönetici iyzico anahtarlarını eklemeli.')}</Text>
@@ -947,12 +1048,23 @@ const styles = StyleSheet.create({
   },
   paymentTitle: { fontSize: 15, fontWeight: '700', color: '#1C1C1E', marginBottom: 6 },
   paymentHint: { fontSize: 13, color: '#5C5346', lineHeight: 18, marginBottom: 10 },
+  paymentSandboxHint: { marginTop: 6, fontSize: 11, color: '#6B6560', lineHeight: 16 },
   paymentWarn: { marginTop: 8, fontSize: 12, color: '#B42318', lineHeight: 17 },
   payBtn: {
     backgroundColor: '#1B4D4A',
     paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  payRefreshBtn: {
+    marginTop: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  payRefreshText: {
+    color: '#1B4D4A',
+    fontSize: 14,
+    fontWeight: '700',
   },
   submitBtn: {
     marginTop: 20,

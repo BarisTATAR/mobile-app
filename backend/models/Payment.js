@@ -19,6 +19,8 @@ const paymentSchema = new mongoose.Schema(
     usedAt: { type: Date, default: null },
     talep: { type: mongoose.Schema.Types.ObjectId, ref: 'YoreselEtkinlikTalep', default: null },
     lastError: { type: String, trim: true, default: '' },
+    /** Sanitized iyzico retrieve snapshot for support/debug (no tokens). */
+    lastRetrieveDebug: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { timestamps: true }
 );

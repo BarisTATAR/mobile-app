@@ -24,7 +24,25 @@ function publicApiBase(req) {
   return `${proto}://${host}`;
 }
 
-function buyerFromUser(user, paymentId) {
+function clientIpFromRequest(req) {
+  if (!req) return '85.34.37.1';
+  const xf = req.headers['x-forwarded-for'];
+  if (xf) {
+    const ip = String(xf).split(',')[0].trim();
+    if (ip) return ip.replace(/^::ffff:/, '');
+  }
+  const raw = req.ip || req.socket?.remoteAddress || '';
+  const ip = String(raw).replace(/^::ffff:/, '').trim();
+  if (ip && ip !== '::1' && ip !== '127.0.0.1') return ip;
+  return '85.34.37.1';
+}
+
+function isIyzicoSandbox() {
+  const uri = String(process.env.IYZICO_BASE_URL || 'https://sandbox-api.iyzipay.com').toLowerCase();
+  return uri.includes('sandbox');
+}
+
+function buyerFromUser(user, paymentId, clientIp) {
   const name = String(user.name || 'Üye').trim() || 'Üye';
   const surname = String(user.surname || 'Kullanıcı').trim() || 'Kullanıcı';
   const phone = String(user.phone || '').replace(/\D/g, '') || '5550000000';
@@ -43,7 +61,7 @@ function buyerFromUser(user, paymentId) {
     registrationAddress: address,
     city,
     country: 'Turkey',
-    ip: '172.16.0.1',
+    ip: clientIp || '85.34.37.1',
   };
 }
 
@@ -77,10 +95,10 @@ function retrieveCheckoutForm(token) {
   });
 }
 
-function buildCheckoutRequest({ payment, user, fee, callbackUrl }) {
+function buildCheckoutRequest({ payment, user, fee, callbackUrl, clientIp }) {
   const conversationId = String(payment._id);
   const price = Number(fee).toFixed(2);
-  const buyer = buyerFromUser(user, conversationId);
+  const buyer = buyerFromUser(user, conversationId, clientIp);
   const address = {
     contactName: `${buyer.name} ${buyer.surname}`.trim(),
     city: buyer.city,
@@ -114,7 +132,9 @@ function buildCheckoutRequest({ payment, user, fee, callbackUrl }) {
 
 module.exports = {
   isIyzicoConfigured,
+  isIyzicoSandbox,
   publicApiBase,
+  clientIpFromRequest,
   initializeCheckoutForm,
   retrieveCheckoutForm,
   buildCheckoutRequest,

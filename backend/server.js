@@ -25,9 +25,11 @@ const YoreselEtkinlikIsletme = require('./models/YoreselEtkinlikIsletme');
 const YoreselEtkinlikTalep = require('./models/YoreselEtkinlikTalep');
 const {
   YORESEL_PAYMENT_PURPOSE,
+  YORESEL_PAYMENT_APP_RETURN,
   PAYMENT_REQUIRED_MESSAGE,
   PAYMENT_NOT_CONFIGURED_MESSAGE,
   parseYoreselReservationFeeInput,
+  formatFeeTry,
   getYoreselReservationFee,
   findPaidYoreselCredit,
   consumePaidYoreselCredit,
@@ -35,11 +37,14 @@ const {
 } = require('./utils/yoreselPayment');
 const {
   isIyzicoConfigured,
+  isIyzicoSandbox,
   publicApiBase,
+  clientIpFromRequest,
   initializeCheckoutForm,
   retrieveCheckoutForm,
   buildCheckoutRequest,
 } = require('./utils/iyzicoCheckout');
+const { paymentDebugLog, sanitizeRetrieveResult } = require('./utils/paymentDebugLog');
 const MemberDiscount = require('./models/MemberDiscount');
 const {
   normalizeMemberId,
@@ -942,15 +947,18 @@ async function updateAppSettingsHandler(req, res) {
 app.patch('/api/app-settings', updateAppSettingsHandler);
 app.put('/api/app-settings', updateAppSettingsHandler);
 
-function yoreselPaymentStatusPayload(fee, paidDoc) {
+function yoreselPaymentStatusPayload(fee, paidDoc, extra = {}) {
   const required = fee > 0;
   return {
     fee,
+    feeLabel: formatFeeTry(fee),
     currency: 'TRY',
     required,
     paid: required ? !!paidDoc : true,
     paymentConfigured: isIyzicoConfigured(),
+    paymentSandbox: isIyzicoSandbox(),
     paymentId: paidDoc && paidDoc._id ? String(paidDoc._id) : null,
+    ...extra,
   };
 }
 
@@ -962,10 +970,25 @@ app.get('/api/payments/yoresel/status', async (req, res) => {
     const fee = await getYoreselReservationFee(AppSettings);
     const userIdRaw = req.query.userId != null ? String(req.query.userId).trim() : '';
     let paidDoc = null;
+    let lastPaymentError = null;
+    let extraDebug = null;
     if (fee > 0 && userIdRaw && mongoose.Types.ObjectId.isValid(userIdRaw)) {
       paidDoc = await findPaidYoreselCredit(Payment, userIdRaw);
+      if (!paidDoc) {
+        const last = await Payment.findOne({
+          user: userIdRaw,
+          purpose: YORESEL_PAYMENT_PURPOSE,
+          status: 'failed',
+        })
+          .sort({ updatedAt: -1 })
+          .lean();
+        if (last && last.lastError) lastPaymentError = String(last.lastError);
+        if (last && last.lastRetrieveDebug) {
+          extraDebug = last.lastRetrieveDebug;
+        }
+      }
     }
-    res.json(yoreselPaymentStatusPayload(fee, paidDoc));
+    res.json(yoreselPaymentStatusPayload(fee, paidDoc, { lastPaymentError, lastPaymentDebug: extraDebug || null }));
   } catch (e) {
     console.error('Yoresel payment status error:', e);
     res.status(500).json({ error: 'Ödeme durumu alınamadı' });
@@ -1014,9 +1037,17 @@ app.post('/api/payments/yoresel/init', async (req, res) => {
     });
     const base = publicApiBase(req);
     const callbackUrl = `${base}/api/payments/yoresel/iyzico-callback`;
-    const iyziReq = buildCheckoutRequest({ payment, user, fee, callbackUrl });
+    const iyziReq = buildCheckoutRequest({
+      payment,
+      user,
+      fee,
+      callbackUrl,
+      clientIp: clientIpFromRequest(req),
+    });
     const result = await initializeCheckoutForm(iyziReq);
-    if (!result || result.status !== 'success' || !result.checkoutFormContent) {
+    const hostedPageUrl = result && result.paymentPageUrl ? String(result.paymentPageUrl).trim() : '';
+    const formHtml = result && result.checkoutFormContent ? String(result.checkoutFormContent) : '';
+    if (!result || result.status !== 'success' || (!hostedPageUrl && !formHtml)) {
       payment.status = 'failed';
       payment.lastError = result?.errorMessage || 'iyzico formu oluşturulamadı';
       await payment.save();
@@ -1024,12 +1055,26 @@ app.post('/api/payments/yoresel/init', async (req, res) => {
     }
     payment.providerToken = result.token || '';
     payment.conversationId = result.conversationId || String(payment._id);
-    payment.checkoutHtml = String(result.checkoutFormContent);
+    payment.checkoutHtml = formHtml;
     await payment.save();
+    const checkoutUrl = hostedPageUrl || `${base}/api/payments/yoresel/pay/${payment._id}`;
+    // #region agent log
+    paymentDebugLog(
+      'server.js:yoresel-init',
+      'checkout route chosen',
+      {
+        paymentId: String(payment._id),
+        hostedPage: Boolean(hostedPageUrl),
+        checkoutHost: checkoutUrl.split('/')[2] || '',
+        callbackHost: (callbackUrl.split('/')[2] || ''),
+      },
+      'H2',
+    );
+    // #endregion
     res.status(201).json({
       alreadyPaid: false,
       paymentId: String(payment._id),
-      checkoutUrl: `${base}/api/payments/yoresel/pay/${payment._id}`,
+      checkoutUrl,
       ...yoreselPaymentStatusPayload(fee, null),
     });
   } catch (e) {
@@ -1040,10 +1085,14 @@ app.post('/api/payments/yoresel/init', async (req, res) => {
 
 function paymentResultHtml(title, body, ok) {
   const color = ok ? '#1B4D4A' : '#B42318';
+  const appLink = `${YORESEL_PAYMENT_APP_RETURN}?status=${ok ? 'ok' : 'fail'}`;
   return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;background:#F4F1EB;color:#1C1C1E;margin:0;padding:32px 20px;text-align:center}
-h1{color:${color};font-size:22px}p{font-size:16px;line-height:1.5}</style></head>
-<body><h1>${title}</h1><p>${body}</p></body></html>`;
+h1{color:${color};font-size:22px}p{font-size:16px;line-height:1.5}
+a{display:inline-block;margin-top:18px;background:${color};color:#fff;text-decoration:none;padding:14px 22px;border-radius:14px;font-weight:700}</style></head>
+<body><h1>${title}</h1><p>${body}</p><p><a href="${appLink}">Uygulamaya dön</a></p>
+<script>setTimeout(function(){ window.location.href=${JSON.stringify(appLink)}; }, 700);</script>
+</body></html>`;
 }
 
 app.get('/api/payments/yoresel/pay/:id', async (req, res) => {
@@ -1058,7 +1107,7 @@ app.get('/api/payments/yoresel/pay/:id', async (req, res) => {
     const payment = await Payment.findById(id).lean();
     if (!payment) return res.status(404).send(paymentResultHtml('Hata', 'Ödeme bulunamadı.', false));
     if (payment.status === 'paid' || payment.status === 'used') {
-      return res.send(paymentResultHtml('Ödeme alındı', 'Uygulamaya dönüp Talep gönder butonunu kullanabilirsiniz.', true));
+      return res.send(paymentResultHtml('Ödeme alındı', 'Uygulamaya dönün. Rezervasyonu Talep gönder ile tamamlayabilirsiniz.', true));
     }
     if (!payment.checkoutHtml) {
       return res.status(409).send(paymentResultHtml('Hata', 'Ödeme formu henüz hazır değil.', false));
@@ -1073,20 +1122,47 @@ app.get('/api/payments/yoresel/pay/:id', async (req, res) => {
 
 async function finishIyzicoPayment(token, res) {
   const result = await retrieveCheckoutForm(token);
+  const retrieveSnap = sanitizeRetrieveResult(result);
+  // #region agent log
+  paymentDebugLog('server.js:finishIyzicoPayment', 'iyzico retrieve', {
+    ...retrieveSnap,
+    tokenPresent: Boolean(token),
+  }, 'H1');
+  // #endregion
   const conversationId = result && result.conversationId ? String(result.conversationId) : '';
   const payment = conversationId && mongoose.Types.ObjectId.isValid(conversationId)
     ? await Payment.findById(conversationId)
     : await Payment.findOne({ providerToken: token });
   if (!payment) {
+    // #region agent log
+    paymentDebugLog('server.js:finishIyzicoPayment', 'payment not found', { conversationId }, 'H4');
+    // #endregion
     return res.status(404).send(paymentResultHtml('Hata', 'Ödeme kaydı bulunamadı.', false));
   }
   if (payment.status === 'paid' || payment.status === 'used') {
-    return res.send(paymentResultHtml('Ödeme alındı', 'Uygulamaya dönüp Talep gönder butonunu kullanabilirsiniz.', true));
+    return res.send(paymentResultHtml('Ödeme alındı', 'Uygulamaya dönün. Rezervasyonu Talep gönder ile tamamlayabilirsiniz.', true));
   }
   const ok = result && result.status === 'success' && String(result.paymentStatus || '').toLowerCase() === 'success';
   if (!ok) {
     payment.status = 'failed';
-    payment.lastError = (result && (result.errorMessage || result.paymentStatus)) || 'Ödeme başarısız';
+    let detail = result && (result.errorMessage || result.errorCode || result.paymentStatus);
+    if (detail && String(detail).toLowerCase() === 'failure') {
+      detail = '3D Secure doğrulaması veya kart reddedildi. Sandbox’ta SMS kodu 123456, kart 5528790000000008.';
+    }
+    payment.lastError = detail || 'Ödeme başarısız';
+    payment.lastRetrieveDebug = retrieveSnap;
+    // #region agent log
+    paymentDebugLog('server.js:finishIyzicoPayment', 'payment marked failed', {
+      paymentId: String(payment._id),
+      ...retrieveSnap,
+    }, 'H1');
+    // #endregion
+    console.error('Yoresel iyzico retrieve failed:', {
+      conversationId,
+      paymentStatus: result && result.paymentStatus,
+      errorMessage: result && result.errorMessage,
+      fraudStatus: result && result.fraudStatus,
+    });
     await payment.save();
     return res.status(402).send(paymentResultHtml('Ödeme alınamadı', payment.lastError, false));
   }
@@ -1096,12 +1172,19 @@ async function finishIyzicoPayment(token, res) {
   payment.providerToken = token || payment.providerToken;
   payment.lastError = '';
   await payment.save();
-  return res.send(paymentResultHtml('Ödeme alındı', 'Uygulamaya dönün. Talep gönder butonu artık aktif.', true));
+  return res.send(paymentResultHtml('Ödeme alındı', 'Uygulamaya dönün. Rezervasyonu Talep gönder ile tamamlayabilirsiniz.', true));
 }
 
 app.post('/api/payments/yoresel/iyzico-callback', async (req, res) => {
   try {
     const token = String(req.body?.token || req.query.token || '').trim();
+    // #region agent log
+    paymentDebugLog('server.js:iyzico-callback', 'callback hit', {
+      method: 'POST',
+      hasToken: Boolean(token),
+      contentType: req.headers['content-type'] || '',
+    }, 'H4');
+    // #endregion
     if (!token) return res.status(400).send(paymentResultHtml('Hata', 'Ödeme doğrulanamadı.', false));
     await finishIyzicoPayment(token, res);
   } catch (e) {

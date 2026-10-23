@@ -85,6 +85,19 @@ function mockOpenRestaurant() {
   });
 }
 
+async function get(path) {
+  const server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}${path}`);
+    const json = await res.json().catch(() => ({}));
+    return { status: res.status, body: json };
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
 async function post(path, body) {
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -239,6 +252,18 @@ test('POST /api/yoresel-etkinlik/talep returns 402 without paid reservation fee'
   });
   assert.equal(res.status, 402);
   assert.equal(res.body.code, 'PAYMENT_REQUIRED');
+  mockAppSettingsFee(0);
+});
+
+test('GET /api/payments/yoresel/status uses the admin-set fee', async () => {
+  mockAppSettingsFee(175);
+  mockNoPaidYoreselCredit();
+  const res = await get(`/api/payments/yoresel/status?userId=${USER_ID}`);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.fee, 175);
+  assert.equal(res.body.required, true);
+  assert.equal(res.body.paid, false);
+  assert.equal(res.body.feeLabel, '175 TL');
   mockAppSettingsFee(0);
 });
 

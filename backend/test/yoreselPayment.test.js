@@ -32,3 +32,9 @@ test('serializeAppSettings includes fee without wiping photo', () => {
   assert.equal(out.yoreselReservationFee, 80);
   assert.equal(out.yoreselPaymentConfigured, true);
 });
+
+test('payment required copy mentions completing the reservation from the admin fee', () => {
+  const { PAYMENT_REQUIRED_MESSAGE } = require('../utils/yoreselPayment');
+  assert.match(PAYMENT_REQUIRED_MESSAGE, /admin/i);
+  assert.match(PAYMENT_REQUIRED_MESSAGE, /kart/i);
+});

@@ -152,17 +152,22 @@ describe('list and content screens', () => {
       'appUser',
       JSON.stringify({ id: 'u1', name: 'Ali', surname: 'Yılmaz', username: 'ali' })
     );
-    const { findByTestId, getByText } = render(<EtkinliklerScreen navigation={nav()} />);
-    expect(await findByTestId('yoresel-pay-button')).toBeTruthy();
-    expect(getByText('Rezervasyon bedeli')).toBeTruthy();
-    const submit = await findByTestId('yoresel-submit-button');
-    expect(submit.props.accessibilityState?.disabled || submit.props.disabled).toBe(true);
-    await AsyncStorage.removeItem('appUser');
-    global.fetch.mockImplementation(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }));
+    const { findByTestId, getByText, getAllByText } = render(<EtkinliklerScreen navigation={nav()} />);
+    try {
+      expect(await findByTestId('yoresel-pay-button')).toBeTruthy();
+      expect(await findByTestId('yoresel-pay-refresh')).toBeTruthy();
+      expect(getByText('Rezervasyon bedeli')).toBeTruthy();
+      expect(getAllByText(/150 TL/).length).toBeGreaterThan(0);
+      const submit = await findByTestId('yoresel-submit-button');
+      expect(submit.props.accessibilityState?.disabled || submit.props.disabled).toBe(true);
+    } finally {
+      await AsyncStorage.removeItem('appUser');
+      global.fetch.mockImplementation(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }));
+    }
   });
 
   test('Hava durumu title', async () => {
@@ -171,6 +176,7 @@ describe('list and content screens', () => {
   });
 
   test('English weather uses English condition copy', async () => {
+    await AsyncStorage.removeItem('appUser');
     await AsyncStorage.setItem(LANG_STORAGE_KEY, 'en');
     getCurrentPosition.mockResolvedValueOnce({ latitude: 37.0, longitude: 28.4 });
     reverseGeocode.mockResolvedValueOnce({ district: 'Fethiye', neighbourhood: '' });
