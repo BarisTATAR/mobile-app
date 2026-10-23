@@ -25,7 +25,6 @@ const YoreselEtkinlikIsletme = require('./models/YoreselEtkinlikIsletme');
 const YoreselEtkinlikTalep = require('./models/YoreselEtkinlikTalep');
 const {
   YORESEL_PAYMENT_PURPOSE,
-  YORESEL_PAYMENT_APP_RETURN,
   PAYMENT_REQUIRED_MESSAGE,
   PAYMENT_NOT_CONFIGURED_MESSAGE,
   parseYoreselReservationFeeInput,
@@ -44,7 +43,6 @@ const {
   retrieveCheckoutForm,
   buildCheckoutRequest,
 } = require('./utils/iyzicoCheckout');
-const { paymentDebugLog, sanitizeRetrieveResult } = require('./utils/paymentDebugLog');
 const MemberDiscount = require('./models/MemberDiscount');
 const {
   normalizeMemberId,
@@ -1058,19 +1056,6 @@ app.post('/api/payments/yoresel/init', async (req, res) => {
     payment.checkoutHtml = formHtml;
     await payment.save();
     const checkoutUrl = hostedPageUrl || `${base}/api/payments/yoresel/pay/${payment._id}`;
-    // #region agent log
-    paymentDebugLog(
-      'server.js:yoresel-init',
-      'checkout route chosen',
-      {
-        paymentId: String(payment._id),
-        hostedPage: Boolean(hostedPageUrl),
-        checkoutHost: checkoutUrl.split('/')[2] || '',
-        callbackHost: (callbackUrl.split('/')[2] || ''),
-      },
-      'H2',
-    );
-    // #endregion
     res.status(201).json({
       alreadyPaid: false,
       paymentId: String(payment._id),
@@ -1085,14 +1070,14 @@ app.post('/api/payments/yoresel/init', async (req, res) => {
 
 function paymentResultHtml(title, body, ok) {
   const color = ok ? '#1B4D4A' : '#B42318';
-  const appLink = `${YORESEL_PAYMENT_APP_RETURN}?status=${ok ? 'ok' : 'fail'}`;
+  const afterOk =
+    'Bu sekmeyi kapatabilirsiniz. Ana ekrandan 48 App\'i açın; ödeme durumu güncellenir ve Talep gönder aktif olur.';
+  const afterFail = '48 App\'e dönüp tekrar deneyebilir veya Ödemeyi kontrol et\'e basabilirsiniz.';
+  const footer = ok ? afterOk : afterFail;
   return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;background:#F4F1EB;color:#1C1C1E;margin:0;padding:32px 20px;text-align:center}
-h1{color:${color};font-size:22px}p{font-size:16px;line-height:1.5}
-a{display:inline-block;margin-top:18px;background:${color};color:#fff;text-decoration:none;padding:14px 22px;border-radius:14px;font-weight:700}</style></head>
-<body><h1>${title}</h1><p>${body}</p><p><a href="${appLink}">Uygulamaya dön</a></p>
-<script>setTimeout(function(){ window.location.href=${JSON.stringify(appLink)}; }, 700);</script>
-</body></html>`;
+h1{color:${color};font-size:22px}p{font-size:16px;line-height:1.5}.hint{margin-top:20px;font-size:15px;color:#5C5346}</style></head>
+<body><h1>${title}</h1><p>${body}</p><p class="hint">${footer}</p></body></html>`;
 }
 
 app.get('/api/payments/yoresel/pay/:id', async (req, res) => {
@@ -1120,23 +1105,30 @@ app.get('/api/payments/yoresel/pay/:id', async (req, res) => {
   }
 });
 
+function sanitizeIyzicoRetrieve(result) {
+  if (!result || typeof result !== 'object') return {};
+  return {
+    status: result.status,
+    paymentStatus: result.paymentStatus,
+    errorCode: result.errorCode,
+    errorMessage: result.errorMessage,
+    fraudStatus: result.fraudStatus,
+    mdStatus: result.mdStatus,
+    conversationId: result.conversationId,
+    binNumber: result.binNumber,
+    lastFourDigits: result.lastFourDigits,
+    cardAssociation: result.cardAssociation,
+  };
+}
+
 async function finishIyzicoPayment(token, res) {
   const result = await retrieveCheckoutForm(token);
-  const retrieveSnap = sanitizeRetrieveResult(result);
-  // #region agent log
-  paymentDebugLog('server.js:finishIyzicoPayment', 'iyzico retrieve', {
-    ...retrieveSnap,
-    tokenPresent: Boolean(token),
-  }, 'H1');
-  // #endregion
+  const retrieveSnap = sanitizeIyzicoRetrieve(result);
   const conversationId = result && result.conversationId ? String(result.conversationId) : '';
   const payment = conversationId && mongoose.Types.ObjectId.isValid(conversationId)
     ? await Payment.findById(conversationId)
     : await Payment.findOne({ providerToken: token });
   if (!payment) {
-    // #region agent log
-    paymentDebugLog('server.js:finishIyzicoPayment', 'payment not found', { conversationId }, 'H4');
-    // #endregion
     return res.status(404).send(paymentResultHtml('Hata', 'Ödeme kaydı bulunamadı.', false));
   }
   if (payment.status === 'paid' || payment.status === 'used') {
@@ -1146,17 +1138,17 @@ async function finishIyzicoPayment(token, res) {
   if (!ok) {
     payment.status = 'failed';
     let detail = result && (result.errorMessage || result.errorCode || result.paymentStatus);
-    if (detail && String(detail).toLowerCase() === 'failure') {
-      detail = '3D Secure doğrulaması veya kart reddedildi. Sandbox’ta SMS kodu 123456, kart 5528790000000008.';
+    const md = retrieveSnap.mdStatus;
+    const last4 = retrieveSnap.lastFourDigits || '';
+    if (md === 0 || md === '0') {
+      detail =
+        `3D Secure onaylanmadı (mdStatus 0). Sandbox’ta SMS alanına sayfadaki parantez içindeki kodu yazın (ör. sms code (283126) → 283126). Submit ile onaylayın, Cancel değil. Kart ****${last4 || '????'}.`;
+    } else if (detail && String(detail).toLowerCase() === 'failure') {
+      detail =
+        '3D Secure reddedildi. Sandbox mock ekranında parantez içindeki SMS kodunu girin; kart 5528790000000008.';
     }
     payment.lastError = detail || 'Ödeme başarısız';
     payment.lastRetrieveDebug = retrieveSnap;
-    // #region agent log
-    paymentDebugLog('server.js:finishIyzicoPayment', 'payment marked failed', {
-      paymentId: String(payment._id),
-      ...retrieveSnap,
-    }, 'H1');
-    // #endregion
     console.error('Yoresel iyzico retrieve failed:', {
       conversationId,
       paymentStatus: result && result.paymentStatus,
@@ -1178,13 +1170,6 @@ async function finishIyzicoPayment(token, res) {
 app.post('/api/payments/yoresel/iyzico-callback', async (req, res) => {
   try {
     const token = String(req.body?.token || req.query.token || '').trim();
-    // #region agent log
-    paymentDebugLog('server.js:iyzico-callback', 'callback hit', {
-      method: 'POST',
-      hasToken: Boolean(token),
-      contentType: req.headers['content-type'] || '',
-    }, 'H4');
-    // #endregion
     if (!token) return res.status(400).send(paymentResultHtml('Hata', 'Ödeme doğrulanamadı.', false));
     await finishIyzicoPayment(token, res);
   } catch (e) {

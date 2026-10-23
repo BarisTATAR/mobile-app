@@ -11,6 +11,7 @@ import {
   Modal,
   Linking,
   AppState,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../config/api';
@@ -153,7 +154,10 @@ export default function EtkinliklerScreen({ navigation }) {
   const [paymentStatusLoaded, setPaymentStatusLoaded] = useState(false);
   const [paymentAwaiting, setPaymentAwaiting] = useState(false);
   const [paymentFeeLabel, setPaymentFeeLabel] = useState('0 TL');
+  const [submitPulseActive, setSubmitPulseActive] = useState(false);
   const paymentPollRef = useRef(null);
+  const submitPulseAnim = useRef(new Animated.Value(1)).current;
+  const submitPulseLoopRef = useRef(null);
 
   const [dateModal, setDateModal] = useState(false);
   const [eventTypeModal, setEventTypeModal] = useState(false);
@@ -224,6 +228,34 @@ export default function EtkinliklerScreen({ navigation }) {
     }
   }, []);
 
+  const stopSubmitPulse = useCallback(() => {
+    submitPulseLoopRef.current?.stop();
+    submitPulseLoopRef.current = null;
+    submitPulseAnim.setValue(1);
+    setSubmitPulseActive(false);
+  }, [submitPulseAnim]);
+
+  const startSubmitPulse = useCallback(() => {
+    submitPulseLoopRef.current?.stop();
+    submitPulseAnim.setValue(1);
+    setSubmitPulseActive(true);
+    submitPulseLoopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(submitPulseAnim, { toValue: 0.45, duration: 500, useNativeDriver: true }),
+        Animated.timing(submitPulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      ]),
+      { iterations: 10 },
+    );
+    submitPulseLoopRef.current.start(({ finished }) => {
+      if (finished) stopSubmitPulse();
+    });
+  }, [submitPulseAnim, stopSubmitPulse]);
+
+  useEffect(() => () => {
+    stopPaymentPoll();
+    stopSubmitPulse();
+  }, [stopPaymentPoll, stopSubmitPulse]);
+
   const loadPaymentStatus = useCallback(async () => {
     try {
       const q = appUser?.id ? `?userId=${encodeURIComponent(appUser.id)}` : '';
@@ -240,12 +272,18 @@ export default function EtkinliklerScreen({ navigation }) {
       const paid = data.paid !== false;
       setPaymentFee(fee);
       setPaymentFeeLabel(data.feeLabel || formatFeeTl(fee));
-      setPaymentRequired(!!data.required);
-      setPaymentPaid(paid);
+      const required = !!data.required;
+      setPaymentRequired(required);
+      setPaymentPaid((prevPaid) => {
+        if (required && !prevPaid && paid) {
+          startSubmitPulse();
+        }
+        return paid;
+      });
       setPaymentConfigured(!!data.paymentConfigured);
       setPaymentSandbox(!!data.paymentSandbox);
       setLastPaymentError(data.lastPaymentError ? String(data.lastPaymentError) : '');
-      if (paid && data.required) {
+      if (paid && required) {
         setPaymentAwaiting(false);
         stopPaymentPoll();
       }
@@ -257,7 +295,7 @@ export default function EtkinliklerScreen({ navigation }) {
     } finally {
       setPaymentStatusLoaded(true);
     }
-  }, [appUser?.id, stopPaymentPoll]);
+  }, [appUser?.id, stopPaymentPoll, startSubmitPulse]);
 
   useEffect(() => {
     loadPaymentStatus();
@@ -283,8 +321,6 @@ export default function EtkinliklerScreen({ navigation }) {
       if (sub && typeof sub.remove === 'function') sub.remove();
     };
   }, [loadPaymentStatus]);
-
-  useEffect(() => () => stopPaymentPoll(), [stopPaymentPoll]);
 
   const startPaymentPoll = useCallback(() => {
     stopPaymentPoll();
@@ -497,6 +533,18 @@ export default function EtkinliklerScreen({ navigation }) {
         return;
       }
       if (data.checkoutUrl) {
+        if (data.paymentSandbox || String(data.checkoutUrl).includes('sandbox')) {
+          await new Promise((resolve) => {
+            Alert.alert(
+              tx('Sandbox test ödemesi'),
+              tx(
+                'Kart: 5528790000000008 · SKT 12/30 · CVC 123. 3D ekranında parantez içindeki SMS kodunu girin (123456 değil); Submit ile onaylayın, Cancel değil.',
+              ),
+              [{ text: tx('Tamam'), onPress: () => resolve() }],
+              { cancelable: false },
+            );
+          });
+        }
         setPaymentAwaiting(true);
         startPaymentPoll();
         const opened = await Linking.openURL(data.checkoutUrl);
@@ -619,7 +667,7 @@ export default function EtkinliklerScreen({ navigation }) {
           </Text>
           <Text style={styles.paymentHint}>
             {paymentPaid
-              ? tx('Kart ödemeniz alındı. Talep gönder artık aktif.')
+              ? tx('Kart ödemeniz alındı. Aşağıdaki Talep gönder ile rezervasyonu tamamlayın.')
               : tx('Talep göndermek için uygulama sahibine {fee} kart ile ödemelisiniz.', {
                   fee: paymentFeeLabel,
                 })}
@@ -660,7 +708,7 @@ export default function EtkinliklerScreen({ navigation }) {
           {!paymentPaid && paymentSandbox && paymentConfigured ? (
             <Text style={styles.paymentSandboxHint}>
               {tx(
-                'Test kartı: 5528790000000008 · SKT 12/30 · CVC 123. 3D Secure / SMS kodu sandbox’ta her zaman 123456 (Failure görürseniz kodu kontrol edin).',
+                'Test kartı: 5528790000000008 · SKT 12/30 · CVC 123. 3D ekranı: sms code (XXXXXX) satırındaki parantez içi 6 rakam — Submit, Cancel değil.',
               )}
             </Text>
           ) : null}
@@ -671,17 +719,32 @@ export default function EtkinliklerScreen({ navigation }) {
       ) : null}
 
       {appUser ? (
-        <TouchableOpacity
-          testID="yoresel-submit-button"
+        <Animated.View
           style={[
-            styles.submitBtn,
-            (sending || (paymentRequired && !paymentPaid)) && styles.submitBtnDisabled,
+            submitPulseActive && paymentRequired && paymentPaid ? { opacity: submitPulseAnim } : null,
           ]}
-          onPress={submitTalep}
-          disabled={sending || (paymentRequired && !paymentPaid)}
         >
-          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{tx('Talep gönder')}</Text>}
-        </TouchableOpacity>
+          <TouchableOpacity
+            testID="yoresel-submit-button"
+            style={[
+              styles.submitBtn,
+              submitPulseActive && paymentRequired && paymentPaid ? styles.submitBtnHighlight : null,
+              (sending || (paymentRequired && !paymentPaid)) && styles.submitBtnDisabled,
+            ]}
+            onPress={() => {
+              stopSubmitPulse();
+              submitTalep();
+            }}
+            disabled={sending || (paymentRequired && !paymentPaid)}
+            activeOpacity={0.85}
+          >
+            {sending ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.submitBtnText}>{tx('Talep gönder')}</Text>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       ) : null}
 
       <View style={styles.divider} />
@@ -1065,6 +1128,13 @@ const styles = StyleSheet.create({
     color: '#1B4D4A',
     fontSize: 14,
     fontWeight: '700',
+  },
+  submitBtnHighlight: {
+    shadowColor: '#1B4D4A',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.85,
+    shadowRadius: 10,
+    elevation: 8,
   },
   submitBtn: {
     marginTop: 20,

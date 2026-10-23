@@ -261,10 +261,16 @@ const enVerbatim = {
   'Rezervasyon bedeli': 'Reservation fee',
   'Rezervasyon bedeli ödendi': 'Reservation fee paid',
   'Kart ödemeniz alındı. Talep gönder artık aktif.': 'Payment received. Send request is now active.',
+  'Kart ödemeniz alındı. Aşağıdaki Talep gönder ile rezervasyonu tamamlayın.':
+    'Payment received. Complete the reservation with Send request below.',
   'Kart sistemi henüz bağlanmadı. Yönetici iyzico anahtarlarını eklemeli.':
     'Card payments are not connected yet. Admin must add iyzico keys.',
-  'Test kartı: 5528790000000008 · SKT 12/30 · CVC 123. 3D Secure / SMS kodu sandbox’ta her zaman 123456 (Failure görürseniz kodu kontrol edin).':
-    'Test card: 5528790000000008 · exp 12/30 · CVC 123. In sandbox the 3D Secure / SMS code is always 123456 (if you see Failure, check the code).',
+  'Test kartı: 5528790000000008 · SKT 12/30 · CVC 123. 3D ekranı: sms code (XXXXXX) satırındaki parantez içi 6 rakam — Submit, Cancel değil.':
+    'Test card: 5528790000000008 · exp 12/30 · CVC 123. On 3D screen enter the 6 digits in parentheses on the sms code line—Submit, not Cancel.',
+  'Sandbox test ödemesi': 'Sandbox test payment',
+  'Kart: 5528790000000008 · SKT 12/30 · CVC 123. 3D ekranında parantez içindeki SMS kodunu girin (123456 değil); Submit ile onaylayın, Cancel değil.':
+    'Card: 5528790000000008 · exp 12/30 · CVC 123. On 3D enter the SMS code shown in parentheses (not 123456); Submit, not Cancel.',
+  Tamam: 'OK',
   'Ödeme gerekli': 'Payment required',
   Ödeme: 'Payment',
   'Ödeme için üye olmalısınız.': 'You must sign in to pay.',
